@@ -138,9 +138,15 @@ export default function CreateQuiz() {
       if (materialId) {
         const material = availableMaterials.find((item) => item.id === materialId);
         const blob = await fetchMaterialFile(materialId);
-        const file = new File([blob], material?.title ?? "study-material.pdf", {
-          type: "application/pdf",
-        });
+        // sanity check: a real PDF always starts with "%PDF"
+        const header = await blob.slice(0, 5).text();
+        if (!blob.size || !header.startsWith("%PDF")) {
+          throw new Error("The selected material could not be downloaded as a valid PDF. Please re-upload it.");
+        }
+        // the backend checks the file NAME, so it must end with .pdf
+        const baseName = (material?.title ?? "").trim() || "study-material";
+        const fileName = /\.pdf$/i.test(baseName) ? baseName : `${baseName}.pdf`;
+        const file = new File([blob], fileName, { type: "application/pdf" });
         generated = await generateQuizFromPdf({ file, numQuestions: Number(questionCount), difficulty });
         setSource("pdf");
         if (!topic.trim()) setTopic(material?.title ?? "Study material");
