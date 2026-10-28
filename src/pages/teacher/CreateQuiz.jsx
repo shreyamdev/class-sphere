@@ -15,27 +15,62 @@ const emptyQuestion = () => ({
   correctAnswer: "",
 });
 
+const optionText = (option) =>
+  typeof option === "string"
+    ? option
+    : option?.text ?? option?.value ?? option?.label ?? option?.option ?? "";
+
+// AI services answer in different shapes: options can be an array OR an object like {A: "...", B: "..."}
+function normalizeOptions(raw) {
+  if (Array.isArray(raw)) return raw.map(optionText);
+  if (raw && typeof raw === "object") return Object.values(raw).map(optionText);
+  return [];
+}
+
+// the correct answer can be the option text, an index (0/1/2), or a letter ("A", "B)")
+function resolveCorrectAnswer(item, options, rawOptions) {
+  const raw =
+    item.correctAnswer ??
+    item.correct_answer ??
+    item.correctOption ??
+    item.correct_option ??
+    item.answer ??
+    "";
+  if (typeof raw === "number") return options[raw] ?? "";
+
+  const text = String(raw).trim();
+  if (options.includes(text)) return text;
+
+  const letter = text.match(/^\(?([A-Da-d])[).:]?$/);
+  if (letter) {
+    const index = letter[1].toUpperCase().charCodeAt(0) - 65;
+    if (options[index]) return options[index];
+  }
+
+  if (rawOptions && !Array.isArray(rawOptions) && typeof rawOptions === "object" && rawOptions[text] !== undefined) {
+    return optionText(rawOptions[text]);
+  }
+
+  const loose = options.find((option) => option.trim().toLowerCase() === text.toLowerCase());
+  return loose ?? text;
+}
+
 function extractQuestions(response) {
-  const data = response?.quiz ?? response?.data?.quiz ?? response;
-  const questions = data?.questions ?? data?.quiz?.questions;
+  const data = response?.quiz ?? response?.data?.quiz ?? response?.data ?? response;
+  const questions =
+    data?.questions ?? data?.quiz?.questions ?? data?.mcqs ?? data?.items ??
+    (Array.isArray(data) ? data : undefined);
   if (!Array.isArray(questions)) {
     throw new Error("The AI service did not return a quiz question list.");
   }
   return questions
     .map((item) => {
-      const options = Array.isArray(item.options)
-        ? item.options.map((option) =>
-            typeof option === "string" ? option : option?.text ?? option?.value ?? ""
-          )
-        : [];
-      const rawAnswer =
-        item.correctAnswer ?? item.correct_answer ?? item.answer ?? "";
-      const correctAnswer =
-        typeof rawAnswer === "number" ? options[rawAnswer] ?? "" : String(rawAnswer);
+      const rawOptions = item.options ?? item.choices ?? item.answers;
+      const options = normalizeOptions(rawOptions);
       return {
-        question: item.question ?? item.text ?? "",
+        question: item.question ?? item.question_text ?? item.questionText ?? item.text ?? item.prompt ?? "",
         options,
-        correctAnswer,
+        correctAnswer: resolveCorrectAnswer(item, options, rawOptions),
       };
     })
     .filter((item) => item.question && item.options.length >= 2);
@@ -160,6 +195,7 @@ export default function CreateQuiz() {
       }
       const generatedQuestions = extractQuestions(generated);
       if (!generatedQuestions.length) {
+        console.warn("AI quiz response (no usable questions):", generated);
         throw new Error("The AI service returned no usable multiple-choice questions.");
       }
       setQuestions(generatedQuestions);
