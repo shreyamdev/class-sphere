@@ -28,7 +28,7 @@ export default function Login() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
-const completeLoginAndRedirect = (userData) => {
+  const completeLoginAndRedirect = (userData) => {
     const finalRole = String(userData?.role || "student").toLowerCase();
 
     localStorage.setItem("role", finalRole);
@@ -44,7 +44,7 @@ const completeLoginAndRedirect = (userData) => {
     navigate(destination, { replace: true });
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const next = {};
@@ -57,7 +57,8 @@ const handleSubmit = async (e) => {
 
     setLoading(true);
     try {
-      const user = await login({ email: email.trim(), password, role });
+      // role is the SECOND argument: login(credentials, role)
+      const user = await login({ email: email.trim(), password }, role);
       completeLoginAndRedirect(user);
     } catch (err) {
       if (needsVerification(err)) {
@@ -70,7 +71,7 @@ const handleSubmit = async (e) => {
     }
   };
 
-const handleGoogleSuccess = async (response) => {
+  const handleGoogleSuccess = async (response) => {
     const credential = response?.credential || response;
 
     if (!credential) {
@@ -82,7 +83,7 @@ const handleGoogleSuccess = async (response) => {
     setLoading(true);
     try {
       const user = await loginWithGoogle(credential, role);
-      completeLoginAndRedirect(user, role);
+      completeLoginAndRedirect(user);
     } catch (err) {
       setFormError(err.message || "Failed to sign in with Google.");
     } finally {
@@ -104,7 +105,7 @@ const handleGoogleSuccess = async (response) => {
         </p>
       )}
 
-<div className="mt-5">
+      <div className="mt-5">
         <RoleToggle value={role} onChange={setRole} />
         <p className="mt-2 text-xs text-muted">
           Logging in as: <span className="font-bold text-ink uppercase">{role}</span>
@@ -154,7 +155,7 @@ const handleGoogleSuccess = async (response) => {
         <span className="h-px flex-1 bg-line" />
       </div>
 
-<GoogleButton
+      <GoogleButton
         mode="signin_with"
         role={role}
         onSuccess={handleGoogleSuccess}
