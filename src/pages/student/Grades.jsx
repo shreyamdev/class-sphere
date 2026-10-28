@@ -9,10 +9,9 @@ import {
 import Topbar from "../../components/Topbar";
 import HeroBanner from "../../components/HeroBanner";
 import Card from "../../components/Card";
-import { fetchMyClassrooms } from "../../services/classroomService";
-import { getStudentClassroomAnalytics } from "../../services/analyticsService";
+import { getStudentGradeData } from "../../services/gradesService";
 
-const filters = ["All Results", "Assignments"];
+const filters = ["All Results", "Assignments", "Quizzes"];
 
 export default function Grades() {
   const [courses, setCourses] = useState([]);
@@ -22,36 +21,10 @@ export default function Grades() {
 
   useEffect(() => {
     let active = true;
-    fetchMyClassrooms()
-      .then((classrooms) => Promise.all(classrooms.map(async (classroom) => {
-        const id = classroom._id ?? classroom.id;
-        const analytics = await getStudentClassroomAnalytics(id);
-        return { classroom, analytics };
-      })))
-      .then((results) => {
+    getStudentGradeData()
+      .then(({ courses: data }) => {
         if (!active) return;
-        setCourses(results.map(({ classroom, analytics }) => {
-          const assignments = analytics?.assignments ?? [];
-          const graded = assignments.filter((item) =>
-            item.status === "graded" && Number.isFinite(Number(item.marksObtained))
-          );
-          const scored = graded.reduce((sum, item) => sum + Number(item.marksObtained), 0);
-          const total = graded.reduce((sum, item) => sum + Number(item.maxMarks ?? 0), 0);
-          return {
-            id: classroom._id ?? classroom.id,
-            name: classroom.name ?? classroom.title ?? "Classroom",
-            assignments: graded.map((item) => ({
-              id: item.assignmentId,
-              title: item.title ?? "Assignment",
-              course: classroom.name ?? classroom.title ?? "Classroom",
-              score: Number(item.marksObtained),
-              total: Number(item.maxMarks ?? 0),
-              date: item.gradedAt ? new Date(item.gradedAt).toLocaleDateString() : "Graded",
-            })),
-            scored,
-            total,
-          };
-        }));
+        setCourses(data);
         setStatus("ready");
       })
       .catch((loadError) => {
@@ -64,21 +37,39 @@ export default function Grades() {
     };
   }, []);
 
-  const grades = useMemo(() => courses.flatMap((course) => course.assignments), [courses]);
+  // every result (assignment + quiz) from every class, newest first
+  const grades = useMemo(
+    () =>
+      courses
+        .flatMap((course) => course.results)
+        .sort((a, b) => b.time - a.time),
+    [courses]
+  );
+
   const totalScored = grades.reduce((sum, item) => sum + item.score, 0);
   const totalMarks = grades.reduce((sum, item) => sum + item.total, 0);
   const average = totalMarks ? Math.round((totalScored / totalMarks) * 100) : null;
-  const filteredGrades = activeFilter === "Assignments" ? grades : grades;
+
+  const filteredGrades = grades.filter((item) =>
+    activeFilter === "Assignments"
+      ? item.type === "assignment"
+      : activeFilter === "Quizzes"
+        ? item.type === "quiz"
+        : true
+  );
+
+  const assignmentCount = grades.filter((g) => g.type === "assignment").length;
+  const quizCount = grades.filter((g) => g.type === "quiz").length;
 
   const coursePerformance = courses.map((course) => ({
     ...course,
     percentage: course.total ? Math.round((course.scored / course.total) * 100) : null,
-    count: course.assignments.length,
+    count: course.results.length,
   }));
 
   return (
     <div className="space-y-5">
-      <Topbar title="My Grades" subtitle="Track your graded assignment results" />
+      <Topbar title="My Grades" subtitle="Track your assignment and quiz results" />
       <HeroBanner
         variant="navy"
         title="Every effort counts"
@@ -95,12 +86,12 @@ export default function Grades() {
             <Card className="p-4">
               <div className="flex items-center justify-between"><p className="text-sm text-muted">Overall score</p><Award size={19} /></div>
               <p className="mt-3 text-3xl font-extrabold">{average == null ? "—" : `${average}%`}</p>
-              <p className="mt-1 text-xs text-muted">From graded assignments</p>
+              <p className="mt-1 text-xs text-muted">Assignments + quizzes</p>
             </Card>
             <Card className="p-4">
-              <div className="flex items-center justify-between"><p className="text-sm text-muted">Graded assignments</p><CheckCircle2 size={19} /></div>
+              <div className="flex items-center justify-between"><p className="text-sm text-muted">Results</p><CheckCircle2 size={19} /></div>
               <p className="mt-3 text-3xl font-extrabold">{grades.length}</p>
-              <p className="mt-1 text-xs text-muted">Results available</p>
+              <p className="mt-1 text-xs text-muted">{assignmentCount} assignments · {quizCount} quizzes</p>
             </Card>
             <Card className="p-4">
               <div className="flex items-center justify-between"><p className="text-sm text-muted">Total marks</p><ClipboardList size={19} /></div>
@@ -120,7 +111,12 @@ export default function Grades() {
               {coursePerformance.map((course) => (
                 <Card key={course.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div><p className="font-extrabold">{course.name}</p><p className="mt-1 text-xs text-muted">{course.count} graded assignments</p></div>
+                    <div>
+                      <p className="font-extrabold">{course.name}</p>
+                      <p className="mt-1 text-xs text-muted">
+                        {course.assignmentCount} assignments · {course.quizCount} quizzes
+                      </p>
+                    </div>
                     <span className="rounded-lg bg-brand-soft px-2 py-1 text-xs font-bold">{course.count} results</span>
                   </div>
                   <div className="mt-5 flex items-end justify-between">
@@ -153,14 +149,19 @@ export default function Grades() {
             </div>
             <Card className="mt-3 overflow-hidden">
               {filteredGrades.length === 0 ? (
-                <p className="p-6 text-center text-sm text-muted">No graded assignments available yet.</p>
+                <p className="p-6 text-center text-sm text-muted">No results available yet.</p>
               ) : (
                 <div className="divide-y divide-line">
                   {filteredGrades.map((item) => {
                     const percentage = item.total ? Math.round((item.score / item.total) * 100) : 0;
                     return (
                       <div key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div><p className="font-bold">{item.title}</p><p className="mt-1 text-xs text-muted">{item.course} · Assignment · {item.date}</p></div>
+                        <div>
+                          <p className="font-bold">{item.title}</p>
+                          <p className="mt-1 text-xs text-muted">
+                            {item.course} · {item.type === "quiz" ? "Quiz" : "Assignment"} · {item.date}
+                          </p>
+                        </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-extrabold">{item.score}/{item.total}</span>
                           <span className={`min-w-16 rounded-lg px-2 py-1 text-center text-xs font-extrabold ${
@@ -174,7 +175,6 @@ export default function Grades() {
               )}
             </Card>
           </section>
-          <p className="text-xs text-muted">Quiz grades are not included because the documented API does not expose quiz attempts or results.</p>
         </>
       )}
     </div>
