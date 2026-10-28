@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpen,
   CheckCircle2,
+  CircleHelp,
   Clock,
   TrendingUp,
   Target,
@@ -10,43 +11,31 @@ import {
 import Topbar from "../../components/Topbar";
 import HeroBanner from "../../components/HeroBanner";
 import Card from "../../components/Card";
-import { fetchMyClassrooms } from "../../services/classroomService";
-import {
-  getStudentClassroomAnalytics,
-  getStudentOverview,
-} from "../../services/analyticsService";
+import { getStudentGradeData } from "../../services/gradesService";
 
 export default function Progress() {
-  const [overview, setOverview] = useState(null);
   const [courses, setCourses] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchMyClassrooms(), getStudentOverview()])
-      .then(async ([classrooms, studentOverview]) => {
-        const results = await Promise.all(classrooms.map(async (classroom) => ({
-          classroom,
-          analytics: await getStudentClassroomAnalytics(classroom._id ?? classroom.id),
-        })));
+    getStudentGradeData()
+      .then(({ courses: data }) => {
         if (!active) return;
-        setOverview(studentOverview);
-        setCourses(results.map(({ classroom, analytics }) => {
-          const assignments = analytics?.assignments ?? [];
-          const total = analytics?.totalAssignments ?? assignments.length;
-          const completed = analytics?.completedAssignments ?? 0;
-          return {
-            id: classroom._id ?? classroom.id,
-            name: classroom.name ?? classroom.title ?? "Classroom",
-            teacher: classroom.teacher?.name ?? classroom.owner?.name ?? "Teacher",
-            tag: classroom.subject ?? classroom.semesterSection ?? "Classroom",
-            assignments,
-            total,
-            completed,
-            percentage: total ? Math.round((completed / total) * 100) : 0,
-          };
-        }));
+        setCourses(
+          data.map((course) => {
+            // work = assignments + published quizzes of this class
+            const total = course.totalAssignments + course.quizzes.length;
+            const completed = course.completedAssignments + course.quizzesTaken;
+            return {
+              ...course,
+              total,
+              completed,
+              percentage: total ? Math.round((completed / total) * 100) : 0,
+            };
+          })
+        );
         setStatus("ready");
       })
       .catch((loadError) => {
@@ -59,20 +48,58 @@ export default function Progress() {
     };
   }, []);
 
-  const totalAssignments = overview?.totalAssignments ?? 0;
-  const completedAssignments = overview?.completedAssignments ?? 0;
-  const pendingAssignments = overview?.pendingAssignments ?? 0;
-  const completion = totalAssignments
-    ? Math.round((completedAssignments / totalAssignments) * 100)
-    : 0;
+  const totals = useMemo(() => {
+    const sum = (key) => courses.reduce((acc, c) => acc + c[key], 0);
+    const totalAssignments = sum("totalAssignments");
+    const completedAssignments = sum("completedAssignments");
+    const totalQuizzes = courses.reduce((acc, c) => acc + c.quizzes.length, 0);
+    const quizzesTaken = sum("quizzesTaken");
+    const total = totalAssignments + totalQuizzes;
+    const completed = completedAssignments + quizzesTaken;
+    return {
+      totalAssignments,
+      completedAssignments,
+      totalQuizzes,
+      quizzesTaken,
+      pending: total - completed,
+      completion: total ? Math.round((completed / total) * 100) : 0,
+    };
+  }, [courses]);
+
+  // one activity list: assignments (with status) + quizzes (taken / not taken)
+  const activity = useMemo(
+    () =>
+      courses.flatMap((course) => [
+        ...course.assignments.map((a) => ({
+          id: `a-${a.assignmentId}`,
+          title: a.title ?? "Assignment",
+          course: course.name,
+          kind: "Assignment",
+          status: a.status ?? "pending",
+          marks: a.status === "graded" ? `${a.marksObtained}/${a.maxMarks} marks` : null,
+        })),
+        ...course.quizzes.map((quiz) => {
+          const result = course.results.find((r) => r.id === `quiz-${quiz.id}`);
+          return {
+            id: `q-${quiz.id}`,
+            title: quiz.title,
+            course: course.name,
+            kind: "Quiz",
+            status: result ? "completed" : "pending",
+            marks: result ? `${result.score}/${result.total} marks` : null,
+          };
+        }),
+      ]),
+    [courses]
+  );
 
   return (
     <div className="space-y-5">
-      <Topbar title="My Progress" subtitle="Track your assignment activity and graded work" />
+      <Topbar title="My Progress" subtitle="Track your assignment and quiz activity" />
       <HeroBanner
         variant="navy"
         title="Look how far you've come!"
-        subtitle="See your assignment completion across enrolled classes."
+        subtitle="See your assignment and quiz progress across enrolled classes."
         icons={[TrendingUp, Target, BookOpen]}
       />
 
@@ -83,31 +110,31 @@ export default function Progress() {
         <>
           <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Card className="p-4">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Assignments completed</p><BarChart3 size={19} /></div>
-              <p className="mt-3 text-3xl font-extrabold">{completion}%</p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-brand" style={{ width: `${completion}%` }} /></div>
+              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Overall completion</p><BarChart3 size={19} /></div>
+              <p className="mt-3 text-3xl font-extrabold">{totals.completion}%</p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-brand" style={{ width: `${totals.completion}%` }} /></div>
             </Card>
             <Card className="p-4">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Classes</p><BookOpen size={19} /></div>
-              <p className="mt-3 text-3xl font-extrabold">{overview?.totalClassrooms ?? courses.length}</p>
-              <p className="mt-2 text-xs text-muted">Enrolled classrooms</p>
+              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Assignments done</p><CheckCircle2 size={19} /></div>
+              <p className="mt-3 text-3xl font-extrabold">{totals.completedAssignments}/{totals.totalAssignments}</p>
+              <p className="mt-2 text-xs text-muted">Submitted or graded</p>
             </Card>
             <Card className="p-4">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Work submitted</p><CheckCircle2 size={19} /></div>
-              <p className="mt-3 text-3xl font-extrabold">{completedAssignments}/{totalAssignments}</p>
-              <p className="mt-2 text-xs text-muted">Submitted or graded assignments</p>
+              <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Quizzes taken</p><CircleHelp size={19} /></div>
+              <p className="mt-3 text-3xl font-extrabold">{totals.quizzesTaken}/{totals.totalQuizzes}</p>
+              <p className="mt-2 text-xs text-muted">Published quizzes attempted</p>
             </Card>
             <Card className="p-4">
               <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted">Pending work</p><Clock size={19} /></div>
-              <p className="mt-3 text-3xl font-extrabold">{pendingAssignments}</p>
-              <p className="mt-2 text-xs text-muted">Assignments awaiting submission</p>
+              <p className="mt-3 text-3xl font-extrabold">{totals.pending}</p>
+              <p className="mt-2 text-xs text-muted">Assignments + quizzes left</p>
             </Card>
           </section>
 
           <section>
             <div className="mb-3">
-              <h2 className="text-lg font-extrabold">Class-wise assignment progress</h2>
-              <p className="mt-1 text-sm text-muted">Completion is based on submitted or graded assignments.</p>
+              <h2 className="text-lg font-extrabold">Class-wise progress</h2>
+              <p className="mt-1 text-sm text-muted">Completion counts submitted assignments and attempted quizzes.</p>
             </div>
             {courses.length === 0 ? (
               <Card className="p-5 text-sm text-muted">Join a classroom to see your progress.</Card>
@@ -119,7 +146,9 @@ export default function Progress() {
                       <div>
                         <h3 className="font-extrabold">{course.name}</h3>
                         <p className="mt-1 text-xs text-muted">{course.teacher}</p>
-                        <p className="mt-2 text-xs text-muted">{course.tag}</p>
+                        <p className="mt-2 text-xs text-muted">
+                          {course.completedAssignments}/{course.totalAssignments} assignments · {course.quizzesTaken}/{course.quizzes.length} quizzes
+                        </p>
                       </div>
                       <span className="rounded-lg bg-brand-soft px-2 py-1 text-xs font-bold">
                         {course.completed}/{course.total}
@@ -139,34 +168,32 @@ export default function Progress() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-extrabold">Assignment overview</h2>
+            <h2 className="mb-3 text-lg font-extrabold">Activity overview</h2>
             <Card className="overflow-hidden">
-              {courses.every((course) => course.assignments.length === 0) ? (
-                <p className="p-5 text-sm text-muted">No assignments have been shared yet.</p>
+              {activity.length === 0 ? (
+                <p className="p-5 text-sm text-muted">No assignments or quizzes have been shared yet.</p>
               ) : (
                 <div className="divide-y divide-line">
-                  {courses.flatMap((course) => course.assignments.map((assignment) => (
-                    <div key={assignment.assignmentId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  {activity.map((item) => (
+                    <div key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="font-bold">{assignment.title ?? "Assignment"}</p>
-                        <p className="mt-1 text-xs text-muted">{course.name}</p>
+                        <p className="font-bold">{item.title}</p>
+                        <p className="mt-1 text-xs text-muted">{item.course} · {item.kind}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
-                        {assignment.status === "graded" && (
-                          <span className="text-sm font-bold">{assignment.marksObtained}/{assignment.maxMarks} marks</span>
-                        )}
+                        {item.marks && <span className="text-sm font-bold">{item.marks}</span>}
                         <span className={`rounded-lg px-2.5 py-1 text-xs font-bold capitalize ${
-                          assignment.status === "graded"
+                          item.status === "graded" || item.status === "completed"
                             ? "bg-tone-green text-tone-green-fg"
-                            : assignment.status === "submitted"
+                            : item.status === "submitted"
                               ? "bg-brand-soft"
                               : "bg-tone-yellow text-tone-yellow-fg"
                         }`}>
-                          {assignment.status ?? "pending"}
+                          {item.status}
                         </span>
                       </div>
                     </div>
-                  )))}
+                  ))}
                 </div>
               )}
             </Card>
