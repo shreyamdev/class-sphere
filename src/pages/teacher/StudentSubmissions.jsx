@@ -75,16 +75,26 @@ export default function StudentSubmissions() {
       .then((assignments) => Promise.all(assignments.map(async (assignment) => {
         const assignmentId = assignment._id ?? assignment.id;
         const items = await getAssignmentSubmissions(assignmentId);
-        return items.map((submission) => ({
-          ...submission,
-          id: submissionIdOf(submission),
-          assignmentId,
-          assignment: assignment.title ?? "Assignment",
-          maxMarks: assignment.maxMarks ?? 0,
-          studentName: submission.student?.name ?? "Student",
-          studentEmail: submission.student?.email ?? "",
-          status: submission.status === "graded" ? "graded" : "pending",
-        }));
+        return items.map((submission) => {
+          const submissionId = submissionIdOf(submission);
+          const solutionPdfUrl = submission.solutionPdfUrl ||
+            submission.attachment?.downloadUrl ||
+            submission.attachmentUrl ||
+            (submission.solutionPdfName
+              ? `/api/assignments/${assignmentId}/submissions/${submissionId}/attachment`
+              : "");
+          return {
+            ...submission,
+            id: submissionId,
+            assignmentId,
+            assignment: assignment.title ?? "Assignment",
+            maxMarks: assignment.maxMarks ?? 0,
+            studentName: submission.student?.name ?? "Student",
+            studentEmail: submission.student?.email ?? "",
+            status: submission.status === "graded" ? "graded" : "pending",
+            solutionPdfUrl,
+          };
+        });
       })))
       .then((groups) => {
         if (!active) return;
@@ -287,7 +297,7 @@ export default function StudentSubmissions() {
                     Open submitted work
                   </a>
                 )}
-                {selected.solutionPdfUrl && (
+                {(selected.solutionPdfUrl || selected.solutionPdfName || selected.attachment?.fileName || selected.attachment?.originalName) && (
                   <div>
                     <button
                       type="button"

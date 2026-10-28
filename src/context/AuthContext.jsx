@@ -37,9 +37,10 @@ export function AuthProvider({ children }) {
       .then((me) => {
         if (!ignore && me) {
 
-          const persistedRole = localStorage.getItem("role") || me.role || "student";
-          const updatedUser = { ...me, role: persistedRole };
+          const effectiveRole = String(me.role || "student").toLowerCase();
+          const updatedUser = { ...me, role: effectiveRole };
           setUser(updatedUser);
+          localStorage.setItem("role", effectiveRole);
           localStorage.setItem("user", JSON.stringify(updatedUser));
         }
       })
@@ -77,7 +78,7 @@ const startSession = (authData, requestedRole) => {
       tokenStorage.set(tokens);
     }
 
-const effectiveRole = requestedRole || nextUser?.role || localStorage.getItem("role") || "student";
+    const effectiveRole = String(nextUser?.role || requestedRole || "student").toLowerCase();
     const userWithRole = { ...nextUser, role: effectiveRole };
 
     localStorage.setItem("role", effectiveRole);
@@ -88,7 +89,7 @@ const effectiveRole = requestedRole || nextUser?.role || localStorage.getItem("r
   };
 
   const login = async (credentials, role) => {
-    const res = await loginRequest(credentials);
+    const res = await loginRequest({ ...credentials, role });
     return startSession(res, role);
   };
 

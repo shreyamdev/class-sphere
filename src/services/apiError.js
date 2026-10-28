@@ -19,6 +19,15 @@ export function toApiError(error) {
         ? `The backend does not have this route yet: ${missingRoute[1]} ${missingRoute[2]}. Deploy the matching API route and try again.`
         : htmlText || undefined
       : body?.message ?? body?.error ?? body?.errors?.[0]?.message;
+  if (!message && typeof Blob !== "undefined" && body instanceof Blob) {
+    const statusMessages = {
+      401: "Your session is not authorized. Please log in again.",
+      403: "You do not have permission to access this resource.",
+      404: "The requested PDF was not found.",
+      502: "PDF storage could not be reached. Please try again.",
+    };
+    message = statusMessages[error?.response?.status];
+  }
   if (!message) {
     if (error?.code === "ECONNABORTED") {
       message = "The server took too long to respond. Please try again.";

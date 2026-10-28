@@ -14,7 +14,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const tokens = tokenStorage.get();
   if (tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    config.headers.Authorization = "Bearer " + tokens.accessToken;
   }
   return config;
 });
@@ -64,7 +64,7 @@ api.interceptors.response.use(
     original._retry = true;
     try {
       const tokens = await refreshTokens();
-      original.headers.Authorization = `Bearer ${tokens.accessToken}`;
+      original.headers.Authorization = "Bearer " + tokens.accessToken;
       return api(original);
     } catch (refreshError) {
       tokenStorage.clear();

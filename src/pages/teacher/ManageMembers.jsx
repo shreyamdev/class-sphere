@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { Download, Users } from "lucide-react";
 import Card from "../../components/Card";
 import HeroBanner from "../../components/HeroBanner";
 import Topbar from "../../components/Topbar";
@@ -84,6 +84,24 @@ export default function ManageMembers() {
     [students]
   );
 
+  function downloadStudentReport() {
+    const rows = [
+      ["Student name", "Email", "Student ID"],
+      ...members.map((student) => [student.name, student.email, student.id]),
+    ];
+    const csv = "\ufeff" + rows.map((row) => row.map((value) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`
+    ).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedClassroom?.name ?? "classroom"}-student-report.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   async function handleRemove(studentId) {
     if (!window.confirm("Remove this student from the classroom?")) return;
     setRemovingId(studentId);
@@ -160,8 +178,19 @@ export default function ManageMembers() {
               {status === "ready" ? `${members.length} students enrolled` : " "}
             </p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-tone-blue text-tone-blue-fg">
-            <Users size={18} />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={downloadStudentReport}
+              disabled={status !== "ready" || members.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs font-bold text-ink transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download size={15} />
+              Download student report
+            </button>
+            <div className="hidden h-10 w-10 place-items-center rounded-xl bg-tone-blue text-tone-blue-fg sm:grid">
+              <Users size={18} />
+            </div>
           </div>
         </div>
 

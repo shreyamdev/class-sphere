@@ -9,7 +9,7 @@ export async function createAssignment(
   try {
     const payload = {
       title,
-      description,
+      description: description ?? "",
       dueDate,
       maxMarks: Number(maxMarks ?? 20),
     };
@@ -33,10 +33,32 @@ export async function createAssignment(
 
 export async function fetchAssignmentPdf(assignmentId, submissionId) {
   const path = submissionId
-    ? `/assignments/${assignmentId}/submissions/${submissionId}/file`
+    ? `/assignments/${assignmentId}/submissions/${submissionId}/attachment`
     : `/assignments/${assignmentId}/attachment`;
   try {
-    const response = await api.get(path, { responseType: "blob" });
+    let response;
+    try {
+      response = await api.get(path, { responseType: "blob" });
+    } catch (error) {
+      if (submissionId && error?.response?.status === 404) {
+        response = await api.get(
+          `/assignments/${assignmentId}/submissions/${submissionId}/file`,
+          { responseType: "blob" }
+        );
+      } else {
+        throw error;
+      }
+    }
+    if (!(response.data instanceof Blob) || response.data.size === 0) {
+      throw new Error("The server returned an empty PDF response.");
+    }
+    if (response.data.type && !["application/pdf", "application/octet-stream"].includes(response.data.type)) {
+      throw new Error("The server did not return a valid PDF.");
+    }
+    const signature = await response.data.slice(0, 5).arrayBuffer();
+    if (new TextDecoder().decode(signature) !== "%PDF-") {
+      throw new Error("The server did not return a valid PDF.");
+    }
     return response.data;
   } catch (error) {
     throw toApiError(error);

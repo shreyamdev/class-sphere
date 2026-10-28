@@ -28,10 +28,10 @@ export default function Login() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
-const completeLoginAndRedirect = (userData, chosenRole) => {
-    const finalRole = chosenRole || userData?.role || "student";
+const completeLoginAndRedirect = (userData) => {
+    const finalRole = String(userData?.role || "student").toLowerCase();
 
-localStorage.setItem("role", finalRole);
+    localStorage.setItem("role", finalRole);
 
     const userToSave = { ...(userData || {}), role: finalRole };
     localStorage.setItem("user", JSON.stringify(userToSave));
@@ -57,8 +57,8 @@ const handleSubmit = async (e) => {
 
     setLoading(true);
     try {
-      const user = await login({ email: email.trim(), password });
-      completeLoginAndRedirect(user, role);
+      const user = await login({ email: email.trim(), password, role });
+      completeLoginAndRedirect(user);
     } catch (err) {
       if (needsVerification(err)) {
         navigate("/verify-otp", { state: { email: email.trim() } });

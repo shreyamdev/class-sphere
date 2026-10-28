@@ -63,8 +63,8 @@ export async function resendOtpRequest({ email }) {
   return { message: response.data?.message };
 }
 
-export async function loginRequest({ email, password }) {
-  const response = await call(() => api.post("/auth/login", { email, password }));
+export async function loginRequest({ email, password, role }) {
+  const response = await call(() => api.post("/auth/login", { email, password, role }));
   return normalizeSession(unwrap(response));
 }
 

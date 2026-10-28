@@ -3,6 +3,7 @@ import { BarChart2, CheckCircle2, Users, ShieldAlert, Download } from "lucide-re
 import Card from "../../components/Card";
 import Topbar from "../../components/Topbar";
 import HeroBanner from "../../components/HeroBanner";
+import RiskProfileModal from "../../components/RiskProfileModal";
 import { fetchMyClassrooms } from "../../services/classroomService";
 import {
   getTeacherClassroomAnalytics,
@@ -22,6 +23,7 @@ export default function ClassAnalytics() {
   const [riskStatus, setRiskStatus] = useState("idle");
   const [error, setError] = useState("");
   const [riskError, setRiskError] = useState("");
+  const [riskProfileStudent, setRiskProfileStudent] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -242,11 +244,21 @@ export default function ClassAnalytics() {
                             : `${item.prediction?.risk_probability == null ? "No probability" : `${Math.round(item.prediction.risk_probability * 100)}% risk probability`}`}
                         </p>
                       </div>
-                      <span className="rounded-full bg-card px-3 py-1 text-xs font-bold">
-                        {item.status === "profile_required"
-                          ? "Profile needed"
-                          : item.prediction?.risk_level ?? "Unavailable"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {item.status === "profile_required" ? (
+                          <button
+                            type="button"
+                            onClick={() => setRiskProfileStudent({ id: item.student?.id ?? item.student?._id, name: item.student?.name ?? "Student", email: item.student?.email ?? "" })}
+                            className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold hover:bg-card"
+                          >
+                            Configure ML Profile
+                          </button>
+                        ) : (
+                          <span className="rounded-full bg-card px-3 py-1 text-xs font-bold">
+                            {item.prediction?.risk_level ?? "Unavailable"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -274,7 +286,17 @@ export default function ClassAnalytics() {
                         <span>{row.submittedAssignments ?? 0}/{row.totalAssignments ?? 0} submitted</span>
                         <span>{row.gradedAssignments ?? 0} graded</span>
                         <span>{row.averagePercentage == null ? "No grades" : `${row.averagePercentage}% average`}</span>
-                        {prediction && <span className="font-bold text-ink">{prediction.prediction?.risk_level ?? prediction.status}</span>}
+                        {prediction?.status === "profile_required" ? (
+                          <button
+                            type="button"
+                            onClick={() => setRiskProfileStudent({ id: row.student?.id ?? row.student?._id, name: row.student?.name ?? "Student", email: row.student?.email ?? "" })}
+                            className="rounded-lg border border-line px-3 py-1 text-xs font-bold text-ink hover:bg-soft"
+                          >
+                            Configure ML Profile
+                          </button>
+                        ) : prediction ? (
+                          <span className="font-bold text-ink">{prediction.prediction?.risk_level ?? prediction.status}</span>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -286,6 +308,15 @@ export default function ClassAnalytics() {
       )}
       {status === "ready" && !classroomId && (
         <Card className="p-6 text-sm text-muted">Create a classroom to view analytics.</Card>
+      )}
+      {riskProfileStudent && (
+        <RiskProfileModal
+          key={`${classroomId}-${riskProfileStudent.id}`}
+          classroomId={classroomId}
+          student={riskProfileStudent}
+          onClose={() => setRiskProfileStudent(null)}
+          onSaved={loadPredictions}
+        />
       )}
     </div>
   );

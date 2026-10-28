@@ -102,8 +102,15 @@ export default function Assignments() {
                   : "",
                 answerText: submission?.answerText ?? "",
                 submissionUrl: submission?.submissionUrl ?? "",
-                solutionPdfUrl: submission?.solutionPdfUrl ?? "",
-                questionPdfUrl: assignment.attachmentDownloadUrl ?? "",
+                solutionPdfUrl: submission?.solutionPdfUrl ??
+                  (submission?.solutionPdfName
+                    ? `/api/assignments/${assignment._id ?? assignment.id}/submissions/${submission._id ?? submission.id}/attachment`
+                    : ""),
+                questionPdfUrl:
+                  assignment.attachmentDownloadUrl ??
+                  (assignment.attachment?.originalName
+                    ? `/api/assignments/${assignment._id ?? assignment.id}/attachment`
+                    : ""),
               };
             }));
           })
