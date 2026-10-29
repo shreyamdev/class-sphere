@@ -38,6 +38,12 @@ import ClassAnalytics from "./pages/teacher/ClassAnalytics";
 import TeacherAnnouncements from "./pages/teacher/Announcements";
 import TeacherDoubtForum from "./pages/teacher/DoubtForum";
 import HelpCenter from "./pages/teacher/Helpcenter";
+import useScrollReveal from "./hooks/useScrollReveal";
+
+function ScrollRevealManager() {
+  useScrollReveal();
+  return null;
+}
 
 function RequireAuth() {
   const { user, initializing } = useAuth();
@@ -59,6 +65,7 @@ function RequireAuth() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollRevealManager />
       <Routes>
        
         <Route path="/" element={<LandingPage />} />

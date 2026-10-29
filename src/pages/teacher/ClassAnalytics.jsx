@@ -206,10 +206,10 @@ export default function ClassAnalytics() {
           <div className="grid gap-5 lg:grid-cols-2">
             <Card className="p-5">
               <h2 className="text-base font-extrabold">Assignment activity</h2>
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-muted">Submitted work</span><span className="font-bold">{analytics?.totalSubmissions ?? 0}/{analytics?.totalPossibleSubmissions ?? 0}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted">Graded submissions</span><span className="font-bold">{analytics?.totalGradedSubmissions ?? 0}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted">Not yet submitted</span><span className="font-bold">{analytics?.pendingSubmissions ?? 0}</span></div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                <div className="rounded-xl border border-line bg-soft px-3 py-2.5 text-xs"><p className="text-muted">Submitted work</p><p className="mt-1 text-base font-extrabold">{analytics?.totalSubmissions ?? 0}/{analytics?.totalPossibleSubmissions ?? 0}</p></div>
+                <div className="rounded-xl border border-line bg-soft px-3 py-2.5 text-xs"><p className="text-muted">Graded submissions</p><p className="mt-1 text-base font-extrabold">{analytics?.totalGradedSubmissions ?? 0}</p></div>
+                <div className="rounded-xl border border-line bg-soft px-3 py-2.5 text-xs"><p className="text-muted">Not yet submitted</p><p className="mt-1 text-base font-extrabold">{analytics?.pendingSubmissions ?? 0}</p></div>
               </div>
             </Card>
 
@@ -282,10 +282,10 @@ export default function ClassAnalytics() {
                         <p className="font-bold">{row.student?.name ?? "Student"}</p>
                         <p className="text-xs text-muted">{row.student?.email ?? ""}</p>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-xs text-muted">
-                        <span>{row.submittedAssignments ?? 0}/{row.totalAssignments ?? 0} submitted</span>
-                        <span>{row.gradedAssignments ?? 0} graded</span>
-                        <span>{row.averagePercentage == null ? "No grades" : `${row.averagePercentage}% average`}</span>
+                      <div className="flex flex-wrap gap-2 text-xs text-muted">
+                        <span className="rounded-lg border border-line bg-soft px-2.5 py-1.5"><strong className="text-ink">{row.submittedAssignments ?? 0}/{row.totalAssignments ?? 0}</strong> submitted</span>
+                        <span className="rounded-lg border border-line bg-soft px-2.5 py-1.5"><strong className="text-ink">{row.gradedAssignments ?? 0}</strong> graded</span>
+                        <span className="rounded-lg border border-line bg-soft px-2.5 py-1.5"><strong className="text-ink">{row.averagePercentage == null ? "No grades" : `${row.averagePercentage}%`}</strong>{row.averagePercentage == null ? "" : " average"}</span>
                         {prediction?.status === "profile_required" ? (
                           <button
                             type="button"

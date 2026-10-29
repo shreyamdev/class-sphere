@@ -67,9 +67,9 @@ export default function RiskProfileModal({ classroomId, student, onClose, onSave
 
   const inputClass = "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink";
   const integerInput = (field, label) => (
-    <label key={field} className="block text-xs font-bold">
+    <label key={field} className="block rounded-xl border border-line bg-card p-3 text-xs font-bold text-ink shadow-sm">
       {label}
-      <input type="number" min="0" step="1" required={field !== "num_of_prev_attempts"} value={profile[field]} onChange={update(field)} className={`${inputClass} mt-1`} />
+      <input type="number" min="0" step="1" required={field !== "num_of_prev_attempts"} value={profile[field]} onChange={update(field)} className={`${inputClass} mt-2`} />
     </label>
   );
 
@@ -87,30 +87,36 @@ export default function RiskProfileModal({ classroomId, student, onClose, onSave
         </div>
 
         <form onSubmit={submit} className="mt-4 space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {integerInput("num_of_prev_attempts", "Previous attempts")}
-            {integerInput("studied_credits", "Studied credits")}
-            <label className="block text-xs font-bold">Date registration
-              <input type="number" required value={profile.date_registration} onChange={update("date_registration")} className={`${inputClass} mt-1`} />
-            </label>
-            <label className="block text-xs font-bold">Date unregistration <span className="font-normal text-muted">(optional)</span>
-              <input type="number" value={profile.date_unregistration} onChange={update("date_unregistration")} placeholder="Leave blank if not unregistered" className={`${inputClass} mt-1`} />
-            </label>
-            {integerInput("total_clicks", "Total clicks")}
-            {integerInput("active_days", "Active days")}
-            {integerInput("resources_visited", "Resources visited")}
-            {integerInput("clicks_last_30_days", "Clicks from day 61–90 / last 30 days")}
+          <div>
+            <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Learning activity</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {integerInput("num_of_prev_attempts", "Previous attempts")}
+              {integerInput("studied_credits", "Studied credits")}
+              <label className="block rounded-xl border border-line bg-card p-3 text-xs font-bold text-ink shadow-sm">Date registration
+                <input type="number" required value={profile.date_registration} onChange={update("date_registration")} className={`${inputClass} mt-2`} />
+              </label>
+              <label className="block rounded-xl border border-line bg-card p-3 text-xs font-bold text-ink shadow-sm">Date unregistration <span className="font-normal text-muted">(optional)</span>
+                <input type="number" value={profile.date_unregistration} onChange={update("date_unregistration")} placeholder="Leave blank if not unregistered" className={`${inputClass} mt-2`} />
+              </label>
+              {integerInput("total_clicks", "Total clicks")}
+              {integerInput("active_days", "Active days")}
+              {integerInput("resources_visited", "Resources visited")}
+              {integerInput("clicks_last_30_days", "Clicks from day 61–90 / last 30 days")}
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Object.entries(choices).map(([field, values]) => (
-              <label key={field} className="block text-xs font-bold">
-                {field.replaceAll("_", " ")}
-                <select value={profile[field]} onChange={update(field)} className={`${inputClass} mt-1`}>
-                  {values.map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </label>
-            ))}
+          <div>
+            <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Student profile</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(choices).map(([field, values]) => (
+                <label key={field} className="block rounded-xl border border-line bg-card p-3 text-xs font-bold text-ink shadow-sm">
+                  {field.replaceAll("_", " ")}
+                  <select value={profile[field]} onChange={update(field)} className={`${inputClass} mt-2`}>
+                    {values.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
           </div>
 
           <p className="rounded-xl bg-soft p-3 text-xs text-muted">Use real classroom context and model-compatible categories. Do not generate fake click or activity values. Risk predictions are decision-support estimates.</p>
