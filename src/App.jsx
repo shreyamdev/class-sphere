@@ -14,6 +14,7 @@ import StudyMaterial from "./pages/student/StudyMaterial";
 import Assignments from "./pages/student/Assignments";
 import Quizzes from "./pages/student/Quizzes";
 import AttemptQuiz from "./pages/student/AttemptQuiz";
+import QuizAttemptReview from "./pages/student/QuizAttemptReview";
 import NotesAI from "./pages/student/NotesAI";
 import Flashcards from "./pages/student/Flashcards";
 import Grades from "./pages/student/Grades";
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="assignments" element={<Assignments />} />
             <Route path="quizzes" element={<Quizzes />} />
             <Route path="quizzes/:quizId" element={<AttemptQuiz />} />
+            <Route path="quiz-attempts/:attemptId/review" element={<QuizAttemptReview />} />
             <Route path="notes-ai" element={<NotesAI />} />
             <Route path="flashcards" element={<Flashcards />} />
             <Route path="grades" element={<Grades />} />

@@ -8,6 +8,7 @@ import { fetchMyClassrooms } from "../../services/classroomService";
 import {
   getStudentClassroomQuizzes,
   normalizeQuiz,
+  normalizeQuizReview,
   submitQuiz,
 } from "../../services/quizService";
 
@@ -57,9 +58,17 @@ export default function AttemptQuiz() {
         selectedAnswer: answers[questionIndex] ?? "",
       }));
       const response = await submitQuiz({ quizId: quiz.id, answers: submittedAnswers });
-      setResult(response?.attempt ?? response?.result ?? response);
+      const submittedResult = response?.attempt ?? response?.result ?? response;
+      setResult({
+        ...submittedResult,
+        review: normalizeQuizReview(submittedResult?.review),
+      });
     } catch (submitError) {
-      setError(submitError.message || "Could not submit your quiz.");
+      if (submitError.status === 409 || submitError.code === "DUPLICATE_SUBMISSION") {
+        setError("This quiz has already been submitted. You cannot submit it again.");
+      } else {
+        setError(submitError.message || "Could not submit your quiz.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -137,25 +146,50 @@ export default function AttemptQuiz() {
       )}
 
       {result && (
-        <Card className="p-6 text-center">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-tone-green-fg" />
-          <h2 className="mt-3 text-xl font-extrabold">Quiz submitted</h2>
-          <p className="mt-2 text-3xl font-extrabold">
-            {result.score ?? result.marksObtained ?? "—"}
-            <span className="text-base text-muted"> / {result.totalMarks ?? result.total ?? quiz.totalMarks}</span>
-          </p>
-          {result.correctAnswers != null && result.totalQuestions != null && (
-            <p className="mt-1 text-sm text-muted">
-              {result.correctAnswers} of {result.totalQuestions} answers correct
+        <div className="space-y-4">
+          <Card className="p-6 text-center">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-tone-green-fg" />
+            <h2 className="mt-3 text-xl font-extrabold">Quiz submitted</h2>
+            <p className="mt-2 text-3xl font-extrabold">
+              {result.score ?? result.marksObtained ?? "—"}
+              <span className="text-base text-muted"> / {result.totalMarks ?? result.total ?? quiz.totalMarks}</span>
             </p>
+            {result.correctAnswers != null && result.totalQuestions != null && (
+              <p className="mt-1 text-sm text-muted">{result.correctAnswers} of {result.totalQuestions} answers correct</p>
+            )}
+          </Card>
+          {Array.isArray(result.review) && result.review.length > 0 && (
+            <Card className="overflow-hidden">
+              <div className="border-b border-line p-4"><h2 className="font-extrabold">Answer review</h2></div>
+              <div className="divide-y divide-line">
+                {result.review.map((item, index) => {
+                  const status = String(item.status ?? (item.isCorrect ? "correct" : "incorrect")).toLowerCase();
+                  return (
+                    <div key={index} className="p-4">
+                      <p className="font-bold"><span className="mr-2 text-muted">{(item.questionIndex ?? index) + 1}.</span>{item.question ?? item.text ?? "Question unavailable"}</p>
+                      <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        {status === "correct" ? (
+                          <span className="rounded-lg bg-tone-green px-3 py-2 font-bold text-tone-green-fg">{item.selectedAnswer}</span>
+                        ) : status === "unanswered" ? (
+                          <>
+                            <span className="rounded-lg bg-tone-yellow px-3 py-2 font-bold text-tone-yellow-fg">Not answered</span>
+                            <span className="rounded-lg bg-tone-green px-3 py-2 font-bold text-tone-green-fg">Correct answer: {item.correctAnswer}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="rounded-lg bg-tone-red px-3 py-2 font-bold text-tone-red-fg">Your answer: {item.selectedAnswer ?? "Not answered"}</span>
+                            <span className="rounded-lg bg-tone-green px-3 py-2 font-bold text-tone-green-fg">Correct answer: {item.correctAnswer}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
           )}
-          <Link
-            to="/student/quizzes"
-            className="mt-5 inline-flex rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-on-brand"
-          >
-            Back to quizzes
-          </Link>
-        </Card>
+          <Link to="/student/quizzes" className="inline-flex rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-on-brand">Back to quizzes</Link>
+        </div>
       )}
     </div>
   );

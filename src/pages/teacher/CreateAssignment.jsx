@@ -21,12 +21,6 @@ import { fetchMyClassrooms } from "../../services/classroomService";
 
 const fieldClassName =
   "w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-brand focus:ring-2 focus:ring-brand/30";
-const today = new Date();
-const localDate = [
-  today.getFullYear(),
-  String(today.getMonth() + 1).padStart(2, "0"),
-  String(today.getDate()).padStart(2, "0"),
-].join("-");
 
 export default function CreateAssignment() {
   const navigate = useNavigate();
@@ -35,6 +29,7 @@ export default function CreateAssignment() {
     course: "",
     instructions: "",
     points: "100",
+    weight: "100",
     dueDate: "",
     dueTime: "23:59",
   });
@@ -108,8 +103,14 @@ export default function CreateAssignment() {
     setIsSuccess(false);
 
     const dueAt = new Date(`${formData.dueDate}T${formData.dueTime || "23:59"}`);
-    if (Number.isNaN(dueAt.getTime()) || dueAt <= new Date()) {
-      setError("Choose a due date and time in the future.");
+    if (Number.isNaN(dueAt.getTime())) {
+      setError("Choose a valid due date and time.");
+      return;
+    }
+
+    const weight = formData.weight === "" ? 100 : Number(formData.weight);
+    if (!Number.isFinite(weight) || weight < 0 || weight > 100) {
+      setError("Weight must be between 0 and 100.");
       return;
     }
 
@@ -126,6 +127,7 @@ export default function CreateAssignment() {
         description: formData.instructions.trim(),
         dueDate: dueAt.toISOString(),
         maxMarks,
+        weight,
         questionPdf,
       });
       setIsSuccess(true);
@@ -301,7 +303,7 @@ export default function CreateAssignment() {
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <label htmlFor="assignment-points" className="mb-1.5 block text-sm font-bold">
                   Maximum marks
@@ -321,6 +323,22 @@ export default function CreateAssignment() {
                 </div>
               </div>
               <div>
+                <label htmlFor="assignment-weight" className="mb-1.5 block text-sm font-bold">
+                  Weight
+                </label>
+                <input
+                  id="assignment-weight"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.weight}
+                  onChange={updateField("weight")}
+                  placeholder="100"
+                  className={fieldClassName}
+                />
+              </div>
+              <div>
                 <label htmlFor="assignment-due-date" className="mb-1.5 block text-sm font-bold">
                   Due date <span className="text-tone-red-fg">*</span>
                 </label>
@@ -329,7 +347,6 @@ export default function CreateAssignment() {
                   <input
                     id="assignment-due-date"
                     type="date"
-                    min={localDate}
                     required
                     value={formData.dueDate}
                     onChange={updateField("dueDate")}

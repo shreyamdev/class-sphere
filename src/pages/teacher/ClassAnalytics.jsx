@@ -23,6 +23,8 @@ export default function ClassAnalytics() {
   const [riskStatus, setRiskStatus] = useState("idle");
   const [error, setError] = useState("");
   const [riskError, setRiskError] = useState("");
+  const [riskMeta, setRiskMeta] = useState(null);
+  const [riskWindow, setRiskWindow] = useState(null);
   const [riskProfileStudent, setRiskProfileStudent] = useState(null);
 
   useEffect(() => {
@@ -106,16 +108,57 @@ export default function ClassAnalytics() {
   const loadPredictions = async () => {
     setRiskStatus("loading");
     setRiskError("");
+    setRiskWindow(null);
     try {
       const response = await getTeacherRiskPredictions(classroomId);
-      setPredictions(Array.isArray(response)
-        ? response
-        : response?.predictions ?? response?.students ?? []);
+      const payload = Array.isArray(response)
+        ? { predictions: response }
+        : response?.data ?? response ?? {};
+      const records = payload.predictions ?? payload.students ?? payload.results ?? payload.records ?? [];
+      setPredictions(Array.isArray(records) ? records : []);
+      setRiskMeta({
+        disclaimer: payload.disclaimer ?? payload.data?.disclaimer,
+        activityDataNote: payload.activityDataNote ?? payload.data?.activityDataNote,
+      });
       setRiskStatus("ready");
     } catch (loadError) {
-      setRiskError(loadError.message || "Could not load risk predictions.");
-      setRiskStatus("error");
+      const body = loadError.body ?? {};
+      const bodyCode = body.code ?? body.data?.code;
+      if (
+        loadError.status === 409 ||
+        bodyCode === "MODEL_WINDOW_NOT_REACHED" ||
+        loadError.code === "MODEL_WINDOW_NOT_REACHED"
+      ) {
+        setRiskWindow(
+          body.predictionEligibleFrom ??
+          body.data?.predictionEligibleFrom ??
+          body.eligibleFrom ??
+          body.data?.eligibleFrom ??
+          null
+        );
+        setRiskStatus("window");
+      } else if ([400, 404].includes(loadError.status)) {
+        setRiskError(loadError.message || "This classroom is invalid or inaccessible.");
+        setRiskStatus("error");
+      } else if ([502, 503, 504].includes(loadError.status)) {
+        setRiskError("The prediction service is temporarily unavailable. Please retry.");
+        setRiskStatus("error");
+      } else {
+        setRiskError(loadError.message || "Could not load risk predictions.");
+        setRiskStatus("error");
+      }
     }
+  };
+
+  const riskBadgeClass = (probability) => {
+    if (probability >= 0.65) return "bg-tone-red text-tone-red-fg";
+    if (probability >= 0.35) return "bg-tone-yellow text-tone-yellow-fg";
+    return "bg-tone-green text-tone-green-fg";
+  };
+  const riskLabel = (probability) => {
+    if (probability >= 0.65) return "High Risk";
+    if (probability >= 0.35) return "Medium Risk";
+    return "Low Risk";
   };
 
   const exportCsv = () => {
@@ -217,7 +260,7 @@ export default function ClassAnalytics() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-extrabold">Student risk predictions</h2>
-                  <p className="mt-1 text-xs text-muted">Requires configured student profiles and a reachable ML service.</p>
+                  <p className="mt-1 text-xs text-muted">Generated server-side from the classroom activity window.</p>
                 </div>
                 <button
                   type="button"
@@ -228,39 +271,60 @@ export default function ClassAnalytics() {
                   {riskStatus === "loading" ? "Loading..." : "Load predictions"}
                 </button>
               </div>
-              {riskError && <p role="alert" className="mt-3 text-xs text-tone-red-fg">{riskError}</p>}
+              {riskError && <p role="alert" className="mt-3 rounded-lg bg-tone-red p-3 text-xs text-tone-red-fg">{riskError}</p>}
+              {riskStatus === "window" && (
+                <div role="status" className="mt-3 rounded-xl bg-tone-blue p-3 text-xs text-tone-blue-fg">
+                  {riskWindow ? `Prediction insights become available on ${new Date(riskWindow).toLocaleDateString()}. Set the classroom course start date to improve observation-window accuracy.` : "Prediction insights are not available yet because the classroom has not reached the required activity observation window."}
+                </div>
+              )}
               {riskStatus === "ready" && predictions.length === 0 && (
                 <p className="mt-3 text-sm text-muted">No prediction records were returned.</p>
               )}
               {riskStatus === "ready" && predictions.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  {predictions.map((item) => (
-                    <div key={item.student?.id ?? item.student?._id} className="flex items-center justify-between gap-3 rounded-xl bg-soft p-3">
-                      <div>
-                        <p className="text-sm font-bold">{item.student?.name ?? "Student"}</p>
-                        <p className="text-xs text-muted">
-                          {item.status === "profile_required"
-                            ? "Student profile needs configuration"
-                            : `${item.prediction?.risk_probability == null ? "No probability" : `${Math.round(item.prediction.risk_probability * 100)}% risk probability`}`}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {item.status === "profile_required" ? (
-                          <button
-                            type="button"
-                            onClick={() => setRiskProfileStudent({ id: item.student?.id ?? item.student?._id, name: item.student?.name ?? "Student", email: item.student?.email ?? "" })}
-                            className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold hover:bg-card"
-                          >
-                            Configure ML Profile
-                          </button>
-                        ) : (
-                          <span className="rounded-full bg-card px-3 py-1 text-xs font-bold">
-                            {item.prediction?.risk_level ?? "Unavailable"}
-                          </span>
+                  {predictions.map((item) => {
+                    const probability = Number(item.prediction?.risk_probability);
+                    const features = item.inputFeatures ?? {};
+                    return (
+                      <div key={item.student?.id ?? item.student?._id} className="rounded-xl border border-line bg-soft p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold">{item.student?.name ?? "Student"}</p>
+                            <p className="mt-1 text-xs text-muted">
+                              {item.status === "profile_required"
+                                ? "Student profile needs configuration"
+                                : probability == null || Number.isNaN(probability)
+                                  ? "No probability"
+                                  : `${(probability * 100).toFixed(2)}% risk probability`}
+                            </p>
+                          </div>
+                          {item.status === "profile_required" ? (
+                            <button type="button" onClick={() => setRiskProfileStudent({ id: item.student?.id ?? item.student?._id, name: item.student?.name ?? "Student", email: item.student?.email ?? "" })} className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold hover:bg-card">Configure ML Profile</button>
+                          ) : !Number.isNaN(probability) ? (
+                            <div className="flex items-center gap-2">
+                              {item.prediction?.at_risk === true && <span className="rounded-full bg-tone-red px-2 py-1 text-[11px] font-bold text-tone-red-fg">At risk</span>}
+                              <span className={`rounded-full px-3 py-1 text-xs font-bold ${riskBadgeClass(probability)}`}>{riskLabel(probability)}</span>
+                            </div>
+                          ) : null}
+                        </div>
+                        {!Number.isNaN(probability) && item.status !== "profile_required" && (
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
+                            {["num_assessments_done", "avg_score", "min_score", "weighted_score", "late_submissions", "active_days"].map((feature) => (
+                              <span key={feature} className="rounded-lg bg-card px-2 py-1.5 text-muted">
+                                {feature.replaceAll("_", " ")} <strong className="ml-1 text-ink">{features[feature] ?? "—"}</strong>
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              )}
+              {riskStatus === "ready" && (riskMeta?.disclaimer || riskMeta?.activityDataNote) && (
+                <div className="mt-4 space-y-1 border-t border-line pt-3 text-[11px] text-muted">
+                  {riskMeta.disclaimer && <p>{riskMeta.disclaimer}</p>}
+                  {riskMeta.activityDataNote && <p>{riskMeta.activityDataNote}</p>}
                 </div>
               )}
             </Card>

@@ -13,6 +13,7 @@ export default function CreateClassroom() {
     subject: '',
     semester: '',
     description: '',
+    courseStartDate: '',
   });
 
   const [createdClass, setCreatedClass] = useState(null);
@@ -50,6 +51,9 @@ export default function CreateClassroom() {
       const classroomData = await createClassroom({
         name: formData.name.trim(),
         description: fullDescription || 'No description provided.',
+        courseStartDate: formData.courseStartDate
+          ? new Date(`${formData.courseStartDate}T00:00:00`).toISOString()
+          : undefined,
       });
 
       setCreatedClass(classroomData);
@@ -155,6 +159,19 @@ export default function CreateClassroom() {
                 className="w-full bg-[#f8f9fa] dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#fde047]"
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="course-start-date" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Course start date <span className="text-slate-400">(optional)</span>
+            </label>
+            <input
+              id="course-start-date"
+              type="date"
+              value={formData.courseStartDate}
+              onChange={(e) => setFormData({ ...formData, courseStartDate: e.target.value })}
+              className="w-full bg-[#f8f9fa] dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#fde047]"
+            />
           </div>
 
           <div>
