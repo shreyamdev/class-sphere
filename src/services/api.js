@@ -2,7 +2,7 @@ import axios from "axios";
 import { tokenStorage, AUTH_EXPIRED_EVENT } from "./tokenStorage";
 
 const ROOT = (
-  import.meta.env.VITE_API_URL || "https://class-sphere-u1n7.onrender.com"
+  import.meta.env.VITE_BACKEND_URL || "https://class-sphere-u1n7.onrender.com"
 ).replace(/\/+$/, "");
 export const API_URL = `${ROOT}/api`;
 

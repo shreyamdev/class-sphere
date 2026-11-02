@@ -41,7 +41,8 @@ export function toApiError(error) {
   }
 
   const apiError = new Error(message);
-  apiError.code = body?.code ?? error?.code;
+  apiError.code = body?.code ?? body?.data?.code ?? body?.error?.code ?? error?.code;
   apiError.status = error?.response?.status;
+  apiError.body = body?.data ?? body;
   return apiError;
 }

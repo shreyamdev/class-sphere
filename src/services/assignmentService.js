@@ -4,26 +4,19 @@ import { toApiError } from "./apiError";
 
 export async function createAssignment(
   classroomId,
-  { title, description, dueDate, maxMarks, questionPdf }
+  { title, description, dueDate, maxMarks, weight, questionPdf }
 ) {
   try {
-    const payload = {
-      title,
-      description: description ?? "",
-      dueDate,
-      maxMarks: Number(maxMarks ?? 20),
-    };
-    const requestBody = questionPdf
-      ? (() => {
-        const formData = new FormData();
-        Object.entries(payload).forEach(([key, value]) => formData.append(key, String(value)));
-        formData.append("file", questionPdf);
-        return formData;
-      })()
-      : payload;
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("description", description ?? "");
+    formData.append("dueDate", dueDate);
+    formData.append("maxMarks", String(Number(maxMarks ?? 20)));
+    formData.append("weight", String(weight === "" || weight == null ? 100 : Number(weight)));
+    if (questionPdf) formData.append("file", questionPdf);
     const response = await api.post(
       `/classrooms/${classroomId}/assignments`,
-      requestBody
+      formData
     );
     return response.data?.data ?? response.data;
   } catch (error) {

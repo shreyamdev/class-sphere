@@ -76,6 +76,42 @@ export async function getStudentQuizAttempts() {
   }
 }
 
+export function normalizeQuizReview(items) {
+  const displayValue = (value) => {
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    if (!value || typeof value !== "object") return "";
+    return String(value.text ?? value.answer ?? value.value ?? value.option ?? value.label ?? "");
+  };
+
+  return (Array.isArray(items) ? items : []).map((item, index) => {
+    const question = item?.question;
+    return {
+      ...item,
+      questionIndex: item?.questionIndex ?? index,
+      question: typeof question === "string"
+        ? question
+        : displayValue(question?.question ?? question?.text ?? question),
+      selectedAnswer: displayValue(item?.selectedAnswer),
+      correctAnswer: displayValue(item?.correctAnswer),
+      status: String(item?.status ?? (item?.isCorrect ? "correct" : "incorrect")).toLowerCase(),
+    };
+  });
+}
+
+export async function getStudentQuizAttemptReview(attemptId) {
+  try {
+    const response = await api.get(`/quizzes/student/attempts/${attemptId}/review`);
+    const payload = unwrap(response);
+    const directPayload = payload?.data ?? payload;
+    const items = Array.isArray(directPayload)
+      ? directPayload
+      : directPayload?.review ?? directPayload?.items ?? directPayload?.attempt?.review ?? [];
+    return normalizeQuizReview(items);
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
 export function normalizeQuiz(quiz, classroom = {}) {
   const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
   return {

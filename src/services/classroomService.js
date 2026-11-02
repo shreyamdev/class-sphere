@@ -16,10 +16,12 @@ export const fetchMyClassrooms = async () => {
   }
 };
 
-export const createClassroom = async ({ name, description }) => {
+export const createClassroom = async ({ name, description, courseStartDate }) => {
   try {
+    const payload = { name, description };
+    if (courseStartDate) payload.courseStartDate = courseStartDate;
     const classroom = unwrap(
-      await api.post("/classrooms", { name, description })
+      await api.post("/classrooms", payload)
     );
     return classroom?.classroom ?? classroom;
   } catch (error) {
