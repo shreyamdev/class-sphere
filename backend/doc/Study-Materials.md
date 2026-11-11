@@ -1,6 +1,6 @@
 # Study Materials & Resources APIs
 
-Base URL: `http://localhost:5000`. All endpoints require `Authorization: Bearer <ACCESS_TOKEN>`.
+Base URL: `http://localhost:5000`. All endpoints require authentication using the HttpOnly access cookie set at login. Configure Axios with `withCredentials: true`; do not send Bearer tokens.
 
 PDF files are stored in Cloudinary as authenticated raw assets. The API checks classroom access before listing/downloading. Upload maximum: 10 MB, one PDF per request.
 

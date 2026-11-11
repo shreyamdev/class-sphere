@@ -13,6 +13,12 @@
 - Adds a dry-run-by-default orphan audit script.
 - Adds student quiz attempt review with their selected answer, correct answer, and correctness for each question.
 
+
+- Moved access and refresh JWT delivery from JSON response bodies into HttpOnly cookies; protected routes now authenticate using the access cookie.
+- Enabled credentialed CORS and an allowlisted Origin check for browser write requests.
+- Added separate rate limits for registration, login/Google login, OTP verification/resend, refresh/logout, and classroom joining.
+- Enforced PDF signature checking in the common upload middleware in addition to the existing extension/MIME and 10 MB checks.
+
 ## Automated tests
 
 Run:

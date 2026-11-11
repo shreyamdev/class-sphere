@@ -29,9 +29,7 @@ Do not put Gemini API keys or service secrets in frontend code. The deployed ser
 
 **Headers:**
 
-```http
-Authorization: Bearer <ACCESS_TOKEN>
-```
+The browser sends the HttpOnly access cookie automatically. The shared Axios client must use `withCredentials: true`; do not add a Bearer token header.
 
 **Body:** `multipart/form-data`
 
@@ -76,10 +74,7 @@ The exact generated content and number of flashcards depend on the service respo
 
 **Headers:**
 
-```http
-Authorization: Bearer <TEACHER_ACCESS_TOKEN>
-Content-Type: application/json
-```
+Send `Content-Type: application/json`. The browser sends the HttpOnly session cookie automatically (`withCredentials: true`).
 
 ### Request body
 
@@ -117,9 +112,7 @@ The service may return fewer valid unique questions than requested. Check the re
 
 **Headers:**
 
-```http
-Authorization: Bearer <TEACHER_ACCESS_TOKEN>
-```
+The browser sends the HttpOnly session cookie automatically (`withCredentials: true`).
 
 **Body:** `multipart/form-data`
 
@@ -198,11 +191,9 @@ All routes below are mounted under `/api/quizzes`.
 
 Protected routes require:
 
-```http
-Authorization: Bearer <ACCESS_TOKEN>
-```
+The browser sends the HttpOnly access cookie automatically. The shared Axios client must use `withCredentials: true`; do not add a Bearer token header.
 
-Use a **teacher access token** for teacher routes and a **student access token** for student routes.
+Use the teacher or student session created by the corresponding login. The backend verifies the role from the authenticated user record.
 
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|

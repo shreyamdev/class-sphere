@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { hashValue } = require("../utils/otp");
+const { setAuthCookies } = require("../utils/authCookies");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -144,6 +145,9 @@ const googleAuth = async (req, res) => {
     user.refreshTokenHash = hashValue(refreshToken);
     await user.save();
 
+    // Set the same HttpOnly session cookies used by password login.
+    setAuthCookies(res, accessToken, refreshToken);
+
     return res.status(200).json({
       success: true,
       message: "Google authentication successful.",
@@ -155,9 +159,6 @@ const googleAuth = async (req, res) => {
           role: user.role,
           isEmailVerified: user.isEmailVerified,
         },
-        accessToken,
-        refreshToken,
-        tokenType: "Bearer",
         expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
       },
     });

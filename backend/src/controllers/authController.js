@@ -14,6 +14,12 @@ const {
 } = require("../utils/otp");
 
 const { sendOtpEmail } = require("../services/emailService");
+const {
+  REFRESH_COOKIE_NAME,
+  setAuthCookies,
+  clearAuthCookies,
+  readCookie,
+} = require("../utils/authCookies");
 
 const ACCESS_TOKEN_EXPIRES_IN =
   process.env.ACCESS_TOKEN_EXPIRES_IN || "15m";
@@ -46,8 +52,11 @@ const createRefreshToken = (user) =>
     { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   );
 
-const sendAuthResponse = (res, user, accessToken, refreshToken) =>
-  res.status(200).json({
+const sendAuthResponse = (res, user, accessToken, refreshToken) => {
+  // Tokens are delivered only as HttpOnly cookies, never in the JSON payload.
+  setAuthCookies(res, accessToken, refreshToken);
+
+  return res.status(200).json({
     success: true,
     message: "Authentication successful.",
     data: {
@@ -57,12 +66,10 @@ const sendAuthResponse = (res, user, accessToken, refreshToken) =>
         email: user.email,
         role: user.role,
       },
-      accessToken,
-      refreshToken,
-      tokenType: "Bearer",
       expiresIn: ACCESS_TOKEN_EXPIRES_IN,
     },
   });
+};
 
 // 1. Register a student or teacher and send verification OTP.
 const register = async (req, res) => {
@@ -473,12 +480,13 @@ const login = async (req, res) => {
 // 5. Rotate refresh token and issue a new access token.
 const refresh = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = readCookie(req, REFRESH_COOKIE_NAME);
 
-    if (typeof refreshToken !== "string" || !refreshToken) {
-      return res.status(400).json({
+    if (!refreshToken) {
+      clearAuthCookies(res);
+      return res.status(401).json({
         success: false,
-        message: "Refresh token is required.",
+        message: "Refresh session is missing. Please log in again.",
       });
     }
 
@@ -490,16 +498,18 @@ const refresh = async (req, res) => {
         process.env.JWT_REFRESH_SECRET
       );
     } catch {
+      clearAuthCookies(res);
       return res.status(401).json({
         success: false,
-        message: "Invalid or expired refresh token. Please log in again.",
+        message: "Invalid or expired session. Please log in again.",
       });
     }
 
     if (decoded.type !== "refresh" || !decoded.sub) {
+      clearAuthCookies(res);
       return res.status(401).json({
         success: false,
-        message: "Invalid refresh token.",
+        message: "Invalid refresh session.",
       });
     }
 
@@ -512,9 +522,10 @@ const refresh = async (req, res) => {
       !user.refreshTokenHash ||
       hashValue(refreshToken) !== user.refreshTokenHash
     ) {
+      clearAuthCookies(res);
       return res.status(401).json({
         success: false,
-        message: "Refresh token has been revoked or already used.",
+        message: "Refresh session has expired or been revoked. Please log in again.",
       });
     }
 
@@ -543,9 +554,9 @@ const refresh = async (req, res) => {
 // 6. Revoke the stored refresh token.
 const logout = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = readCookie(req, REFRESH_COOKIE_NAME);
 
-    if (typeof refreshToken === "string" && refreshToken) {
+    if (refreshToken) {
       try {
         const decoded = jwt.verify(
           refreshToken,
@@ -566,13 +577,15 @@ const logout = async (req, res) => {
           }
         }
       } catch {
-        // Invalid tokens cannot revoke another user's session.
+        // Even an invalid/expired session should be cleared in the browser.
       }
     }
 
+    clearAuthCookies(res);
+
     return res.status(200).json({
       success: true,
-      message: "Logged out. Discard tokens on the client.",
+      message: "Logged out successfully.",
     });
   } catch (error) {
     console.error("Logout error:", error.message);

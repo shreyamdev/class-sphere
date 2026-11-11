@@ -1,6 +1,6 @@
 # Announcements & In-App Notifications APIs
 
-Base URL: `http://localhost:5000`. Protected endpoints use `Authorization: Bearer <ACCESS_TOKEN>`.
+Base URL: `http://localhost:5000`. Protected endpoints use the HttpOnly access cookie set at login. Configure Axios with `withCredentials: true`; do not send Bearer tokens.
 
 ## 1. Create announcement
 

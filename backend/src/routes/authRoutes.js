@@ -1,5 +1,4 @@
 const express = require("express");
-const rateLimit = require("express-rate-limit");
 
 const {
   register,
@@ -12,38 +11,23 @@ const {
 } = require("../controllers/authController");
 
 const { protect } = require("../middleware/authMiddleware");
+const {
+  registerLimiter,
+  loginLimiter,
+  verifyOtpLimiter,
+  resendOtpLimiter,
+  refreshLimiter,
+  logoutLimiter,
+} = require("../middleware/rateLimiters");
 
 const router = express.Router();
 
-// Limit repeated authentication requests.
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many authentication requests. Try again later.",
-  },
-});
-
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many OTP requests. Try again later.",
-  },
-});
-
-router.post("/register", authLimiter, register);
-router.post("/verify-otp", otpLimiter, verifyOtp);
-router.post("/resend-otp", otpLimiter, resendOtp);
-router.post("/login", authLimiter, login);
-router.post("/refresh", authLimiter, refresh);
-router.post("/logout", authLimiter, logout);
+router.post("/register", registerLimiter, register);
+router.post("/verify-otp", verifyOtpLimiter, verifyOtp);
+router.post("/resend-otp", resendOtpLimiter, resendOtp);
+router.post("/login", loginLimiter, login);
+router.post("/refresh", refreshLimiter, refresh);
+router.post("/logout", logoutLimiter, logout);
 router.get("/me", protect, me);
 
 module.exports = router;

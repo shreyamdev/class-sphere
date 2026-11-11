@@ -1,18 +1,19 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { ACCESS_COOKIE_NAME, readCookie } = require("../utils/authCookies");
 
 const protect = async (req, res, next) => {
   try {
-    const authorization = req.headers.authorization;
+    // Access JWTs are read only from the HttpOnly cookie, not from a
+    // JavaScript-readable JSON response or localStorage Authorization header.
+    const token = readCookie(req, ACCESS_COOKIE_NAME);
 
-    if (!authorization?.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Authentication token required.",
+        message: "Authentication session required. Please log in.",
       });
     }
-
-    const token = authorization.slice(7);
 
     let decoded;
 
@@ -21,14 +22,14 @@ const protect = async (req, res, next) => {
     } catch {
       return res.status(401).json({
         success: false,
-        message: "Invalid or expired access token.",
+        message: "Session expired or invalid. Please refresh your session.",
       });
     }
 
     if (decoded.type !== "access" || !decoded.sub) {
       return res.status(401).json({
         success: false,
-        message: "Invalid access token.",
+        message: "Invalid access session.",
       });
     }
 
@@ -42,7 +43,7 @@ const protect = async (req, res, next) => {
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
     console.error("Authentication error:", error.message);
 
@@ -53,7 +54,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Restrict routes by user role.
+// Restrict routes by role stored in MongoDB, not by client-supplied role data.
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
@@ -63,7 +64,7 @@ const authorizeRoles = (...allowedRoles) => {
       });
     }
 
-    next();
+    return next();
   };
 };
 

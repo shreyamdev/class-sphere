@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const { isAllowedOrigin } = require("./config/allowedOrigins");
+const verifyRequestOrigin = require("./middleware/verifyRequestOrigin");
 const app = express();
 app.set("trust proxy", 1);
 
@@ -19,24 +21,21 @@ const quizRoutes = require("./routes/quizRoutes");
 
 app.use(helmet());
 
-const allowedOrigins = new Set([
-  "http://localhost:5173",
-  "https://class-sphere-one.vercel.app",
-]);
-
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.has(origin.replace(/\/$/, ""))) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS"));
+      // Requests from Postman/server-to-server clients may not send Origin.
+      if (!origin) return callback(null, true);
+      return callback(null, isAllowedOrigin(origin));
     },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Check Origin on browser write requests because auth now uses cookies.
+app.use(verifyRequestOrigin);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({

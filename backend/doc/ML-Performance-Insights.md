@@ -55,7 +55,7 @@ Teacher-only endpoint:
 
 `GET /api/analytics/teacher/classrooms/:id/risk-predictions`
 
-Header: `Authorization: Bearer <accessToken>`
+This teacher-only route uses the HttpOnly access cookie created at login. The browser must send credentials (`withCredentials: true` in Axios).
 
 There is no longer a risk-profile PUT endpoint. Demographic, click-count, credits, and course-category features are not sent to the current model.
 

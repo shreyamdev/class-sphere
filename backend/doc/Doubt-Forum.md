@@ -3,9 +3,7 @@
 ## Base URL
 `http://localhost:5000/api/discussions`
 
-All endpoints require authentication:
-
-`Authorization: Bearer <accessToken>`
+All endpoints require authentication. The browser sends the HttpOnly access cookie automatically; configure Axios with `withCredentials: true`. Do not send a Bearer token header.
 
 ## 1. Create Doubt
 

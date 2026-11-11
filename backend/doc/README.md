@@ -4,7 +4,8 @@ This folder documents the current Express/MongoDB backend and its separately dep
 
 ## Feature guides
 
-- `Authentication.md` — registration, OTP, login, token lifecycle, and roles.
+- `Authentication.md` — registration, OTP, cookie-based login, session lifecycle, and roles.
+- `Frontend-Cookie-Auth-Handoff.md` — required React/Axios changes for HttpOnly cookie authentication.
 - `Classroom-Management.md` — classroom creation, joining, editing, and deletion.
 - `Assignments-and-Grading.md` — assignments, authenticated PDFs, submissions, grading, and assessment weights.
 - `Study-Materials.md` — PDF uploads and downloads.

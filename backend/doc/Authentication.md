@@ -107,7 +107,7 @@ Request (role is required and must match the role selected on the login screen):
 }
 ```
 
-If the account is stored as a different role, the API returns `403` with `code: "ROLE_MISMATCH"` and does not issue tokens. If role is missing or invalid, it returns `400` with `code: "LOGIN_FIELDS_INVALID"`. The role is compared to the database record; it is never updated by login.
+If the account is stored as a different role, the API returns `403` with `code: "ROLE_MISMATCH"` and does not create a session. If role is missing or invalid, it returns `400` with `code: "LOGIN_FIELDS_INVALID"`. The role is compared to the database record; it is never updated by login.
 
 Success `200`:
 ```json
@@ -121,13 +121,12 @@ Success `200`:
       "email": "aarav@example.com",
       "role": "student"
     },
-    "accessToken": "<ACCESS_TOKEN>",
-    "refreshToken": "<REFRESH_TOKEN>",
-    "tokenType": "Bearer",
     "expiresIn": "15m"
   }
 }
 ```
+
+The backend also sets two **HttpOnly cookies** (`classsphere_access` and `classsphere_refresh`). Tokens are not included in the JSON response and frontend JavaScript cannot read the cookies. The frontend must send requests with credentials enabled (`withCredentials: true` in Axios / `credentials: "include"` in fetch).
 
 ## 6. Google sign-in
 
@@ -140,7 +139,7 @@ Request for a new Google account:
   "role": "student"
 }
 ```
-`role` is required for every Google login. For an existing account, the requested role must match the stored role; a mismatch returns `403 ROLE_MISMATCH` and no tokens. The backend never changes an existing account's role during login.
+`role` is required for every Google login. For an existing account, the requested role must match the stored role; a mismatch returns `403 ROLE_MISMATCH` and no session. The backend never changes an existing account's role during login.
 
 Success `200`:
 ```json
@@ -155,49 +154,34 @@ Success `200`:
       "role": "student",
       "isEmailVerified": true
     },
-    "accessToken": "<ACCESS_TOKEN>",
-    "refreshToken": "<REFRESH_TOKEN>",
-    "tokenType": "Bearer",
     "expiresIn": "15m"
   }
 }
 ```
 
-## 7. Refresh access token
+## 7. Refresh session
 
-**POST** `/api/auth/refresh` — public route, but requires a valid refresh token in the body.
+**POST** `/api/auth/refresh` — public route; requires the HttpOnly refresh cookie. No request body is required.
 
-Request:
-```json
-{ "refreshToken": "<CURRENT_REFRESH_TOKEN>" }
-```
-Success response has the same shape as login and returns a **new access token and new refresh token**. Replace both stored tokens. Reusing the old refresh token is rejected.
+On success, the backend rotates both cookies and returns the user information and access-token expiry. The token values remain out of the JSON response. Reusing an old refresh cookie is rejected.
 
 ## 8. Logout
 
-**POST** `/api/auth/logout` — public route; send the refresh token to revoke the current refresh-token session.
+**POST** `/api/auth/logout` — public route; no request body is required. The backend revokes the refresh session (when valid) and clears both cookies.
 
-Request:
-```json
-{ "refreshToken": "<CURRENT_REFRESH_TOKEN>" }
-```
 Success `200`:
 ```json
 {
   "success": true,
-  "message": "Logged out. Discard tokens on the client."
+  "message": "Logged out successfully."
 }
 ```
-Client should clear its local token state regardless of response.
 
 ## 9. Current user
 
 **GET** `/api/auth/me` — protected.
 
-Header:
-```http
-Authorization: Bearer <ACCESS_TOKEN>
-```
+The browser sends the HttpOnly access cookie automatically when credentials are enabled. Do not read a JWT from localStorage or add an `Authorization: Bearer` header.
 
 Success `200`:
 ```json
@@ -217,7 +201,10 @@ Use this endpoint to debug role/token mismatches. A teacher-only endpoint requir
 
 ## Security and rate limits
 
-- Passwords are hashed with bcrypt; raw passwords are never returned.
+- Passwords are hashed with bcrypt (12 salt rounds); raw passwords are never returned.
 - OTPs are stored as hashes and have expiry/attempt/cooldown rules.
 - Access token default lifetime is `15m`; refresh token default lifetime is `7d`, configurable via environment variables.
-- Authentication routes use rate limits. Respect `429` responses rather than retrying in a tight loop.
+- Access and refresh JWTs are stored in HttpOnly cookies with `Secure` and `SameSite=None` in production, and are not returned in JSON.
+- Browser write requests are checked against the configured frontend Origin.
+- Registration, login, Google login, OTP, refresh, logout and classroom joining have rate limits. Respect `429` responses rather than retrying in a tight loop.
+- In production, set `NODE_ENV=production`. Set `FRONTEND_URL` (or comma-separated `FRONTEND_URLS`) to the exact frontend origin if it differs from the default Vercel URL. Local development uses `SameSite=Lax` and does not require HTTPS.

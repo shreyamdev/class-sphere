@@ -1,6 +1,6 @@
 # Complete API Endpoint Index
 
-Base URL: `http://localhost:5000`. Use `Authorization: Bearer <ACCESS_TOKEN>` for protected endpoints. Roles: `student`, `teacher`.
+Base URL: `http://localhost:5000`. Protected endpoints use the HttpOnly access cookie set during login/Google login. Frontend requests must include credentials (`withCredentials: true` in Axios or `credentials: "include"` in fetch); do not store JWTs in localStorage or send Bearer headers. Roles: `student`, `teacher`.
 
 | Method | Endpoint | Access | Purpose / body |
 |---|---|---|---|
@@ -10,8 +10,8 @@ Base URL: `http://localhost:5000`. Use `Authorization: Bearer <ACCESS_TOKEN>` fo
 | POST | `/api/auth/resend-otp` | Public | `{email}` |
 | POST | `/api/auth/login` | Public | `{email,password,role}`; role must match the stored account role |
 | POST | `/api/auth/google` | Public | `{idToken,role}`; role must match an existing account |
-| POST | `/api/auth/refresh` | Public route; refresh token required in body | `{refreshToken}` |
-| POST | `/api/auth/logout` | Public route; refresh token optional in body | `{refreshToken}` |
+| POST | `/api/auth/refresh` | Public route; HttpOnly refresh cookie required | No body |
+| POST | `/api/auth/logout` | Public route; clears/revokes HttpOnly session cookies | No body |
 | GET | `/api/auth/me` | Authenticated user | No body |
 | POST | `/api/classrooms` | Teacher | `{name,description?,subject?,semesterSection?,courseStartDate?}`; courseStartDate defaults to now |
 | GET | `/api/classrooms` | Teacher or student | No body; own classrooms / enrolled classrooms |
@@ -62,6 +62,11 @@ Base URL: `http://localhost:5000`. Use `Authorization: Bearer <ACCESS_TOKEN>` fo
 | POST | `/api/discussions/doubts/:doubtId/replies` | Classroom member | `{message}` |
 
 ## Notes
+
+- Login and Google login set HttpOnly access/refresh cookies. JWT values are not returned in JSON. The browser must send credentials on cross-origin API requests.
+- In production, set `NODE_ENV=production`; configure `FRONTEND_URL` or comma-separated `FRONTEND_URLS` for any additional exact frontend origins.
+- Browser write requests from unknown Origins are rejected. Postman/server-to-server requests without an Origin header remain supported.
+- PDF uploads are limited to 10 MB and checked for a PDF signature in the shared upload middleware.
 
 - `:id` means a path parameter, not a literal string. Replace it with the actual MongoDB ObjectId.
 - Notification paths require `notificationRoutes` to be mounted at `/api/notifications` in `src/app.js`.
