@@ -1,13 +1,5 @@
 const KEY = "classsphere_tokens";
 
-export const AUTH_EXPIRED_EVENT = "classsphere:auth-expired";
-
-try {
-  localStorage.removeItem("classsphere_auth");
-} catch (error) {
-  console.warn("Could not clear legacy authentication storage:", error);
-}
-
 export const tokenStorage = {
   get() {
     try {

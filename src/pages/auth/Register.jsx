@@ -177,6 +177,7 @@ setShowNextSteps(err.status === 409 || !err.status);
 
       <GoogleButton
         mode="signup_with"
+        role={role}
         onSuccess={handleGoogleSuccess}
         onError={() => setFormError("Google sign-up failed. Please try again.")}
         disabled={loading}

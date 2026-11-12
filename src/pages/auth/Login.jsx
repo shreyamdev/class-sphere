@@ -17,7 +17,7 @@ const needsVerification = (error) =>
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, setUser } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const justVerified = Boolean(location.state?.verified);
 
@@ -30,16 +30,6 @@ export default function Login() {
 
   const completeLoginAndRedirect = (userData) => {
     const finalRole = String(userData?.role || "student").toLowerCase();
-
-    localStorage.setItem("role", finalRole);
-
-    const userToSave = { ...(userData || {}), role: finalRole };
-    localStorage.setItem("user", JSON.stringify(userToSave));
-
-    if (typeof setUser === "function") {
-      setUser(userToSave);
-    }
-
     const destination = getHomePath(finalRole);
     navigate(destination, { replace: true });
   };

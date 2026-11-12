@@ -1,54 +1,28 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   loginRequest,
   googleAuthRequest,
   fetchMe,
   logoutRequest,
 } from "../services/authService";
-import { tokenStorage, AUTH_EXPIRED_EVENT } from "../services/tokenStorage";
+import { tokenStorage } from "../services/tokenStorage";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    if (!tokenStorage.get()?.accessToken) return null;
-    try {
-      const saved = localStorage.getItem("user");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [initializing, setInitializing] = useState(
-    () => Boolean(tokenStorage.get()?.accessToken)
-  );
+  const [user, setUser] = useState(null);
+  const [initializing, setInitializing] = useState(true);
+  const authRequestId = useRef(0);
 
   useEffect(() => {
-    if (!tokenStorage.get()?.accessToken) {
-      tokenStorage.clear();
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
-      return undefined;
-    }
-
     let ignore = false;
+    const requestId = authRequestId.current;
     fetchMe()
       .then((me) => {
-        if (!ignore && me) {
-
-          const effectiveRole = String(me.role || "student").toLowerCase();
-          const updatedUser = { ...me, role: effectiveRole };
-          setUser(updatedUser);
-          localStorage.setItem("role", effectiveRole);
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-        }
+        if (!ignore && requestId === authRequestId.current) setUser(me);
       })
       .catch(() => {
-        tokenStorage.clear();
-        localStorage.removeItem("user");
-        localStorage.removeItem("role");
-        setUser(null);
+        if (!ignore && requestId === authRequestId.current) setUser(null);
       })
       .finally(() => {
         if (!ignore) setInitializing(false);
@@ -62,53 +36,44 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const onExpired = () => {
       tokenStorage.clear();
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
       setUser(null);
     };
-    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    window.addEventListener("classesphere:session-expired", onExpired);
+    return () => window.removeEventListener("classesphere:session-expired", onExpired);
   }, []);
 
-const startSession = (authData, requestedRole) => {
-    const nextUser = authData?.user || authData;
-    const tokens = authData?.tokens;
-
-    if (tokens) {
-      tokenStorage.set(tokens);
+  const startSession = (session) => {
+    if (session.tokens) {
+      tokenStorage.set(session.tokens);
+    } else {
+      tokenStorage.clear();
     }
-
-    const effectiveRole = String(nextUser?.role || requestedRole || "student").toLowerCase();
-    const userWithRole = { ...nextUser, role: effectiveRole };
-
-    localStorage.setItem("role", effectiveRole);
-    localStorage.setItem("user", JSON.stringify(userWithRole));
-
-    setUser(userWithRole);
-    return userWithRole;
+    setUser(session.user);
+    return session.user;
   };
 
   const login = async (credentials, role) => {
-    const res = await loginRequest({ ...credentials, role });
-    return startSession(res, role);
+    authRequestId.current += 1;
+    const session = await loginRequest({ ...credentials, role });
+    return startSession(session);
   };
 
   const loginWithGoogle = async (idToken, role) => {
-    const res = await googleAuthRequest(idToken, role);
-    return startSession(res, role);
+    authRequestId.current += 1;
+    const session = await googleAuthRequest(idToken, role);
+    return startSession(session);
   };
 
   const logout = async () => {
-    const tokens = tokenStorage.get();
+    authRequestId.current += 1;
     try {
-      if (tokens?.refreshToken) await logoutRequest(tokens.refreshToken);
+      await logoutRequest(tokenStorage.get()?.refreshToken);
     } catch (error) {
       console.warn("Could not notify the server about logout:", error);
+    } finally {
+      tokenStorage.clear();
+      setUser(null);
     }
-    tokenStorage.clear();
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    setUser(null);
   };
 
   const value = {

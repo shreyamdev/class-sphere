@@ -2,6 +2,7 @@
 
 export function toApiError(error) {
   const body = error?.response?.data;
+  const code = body?.code ?? body?.data?.code ?? body?.error?.code ?? error?.code;
 
   const htmlText =
     typeof body === "string"
@@ -19,6 +20,10 @@ export function toApiError(error) {
         ? `The backend does not have this route yet: ${missingRoute[1]} ${missingRoute[2]}. Deploy the matching API route and try again.`
         : htmlText || undefined
       : body?.message ?? body?.error ?? body?.errors?.[0]?.message;
+  if (code === "ROLE_MISMATCH") {
+    message =
+      "This Google account is registered with a different role. Select its existing role and try again.";
+  }
   if (!message && typeof Blob !== "undefined" && body instanceof Blob) {
     const statusMessages = {
       401: "Your session is not authorized. Please log in again.",
@@ -41,7 +46,7 @@ export function toApiError(error) {
   }
 
   const apiError = new Error(message);
-  apiError.code = body?.code ?? body?.data?.code ?? body?.error?.code ?? error?.code;
+  apiError.code = code;
   apiError.status = error?.response?.status;
   apiError.body = body?.data ?? body;
   return apiError;

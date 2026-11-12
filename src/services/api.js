@@ -1,5 +1,5 @@
 import axios from "axios";
-import { tokenStorage, AUTH_EXPIRED_EVENT } from "./tokenStorage";
+import { tokenStorage } from "./tokenStorage";
 
 const ROOT = (
   import.meta.env.VITE_BACKEND_URL || "https://class-sphere-u1n7.onrender.com"
@@ -9,12 +9,13 @@ export const API_URL = `${ROOT}/api`;
 const api = axios.create({
   baseURL: API_URL,
   timeout: 60000,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
-  const tokens = tokenStorage.get();
-  if (tokens?.accessToken) {
-    config.headers.Authorization = "Bearer " + tokens.accessToken;
+  const accessToken = tokenStorage.get()?.accessToken;
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
@@ -23,18 +24,29 @@ let refreshPromise = null;
 
 function refreshTokens() {
   if (!refreshPromise) {
-    const current = tokenStorage.get();
+    const refreshToken = tokenStorage.get()?.refreshToken;
+    const request = refreshToken
+      ? api.post("/auth/refresh", { refreshToken })
+      : api.post("/auth/refresh");
 
-    refreshPromise = axios
-      .post(`${API_URL}/auth/refresh`, { refreshToken: current?.refreshToken })
+    refreshPromise = request
       .then((response) => {
         const payload = response.data?.data ?? response.data;
-        const next = {
-          accessToken: payload.accessToken,
-          refreshToken: payload.refreshToken,
-        };
-        tokenStorage.set(next);
-        return next;
+        const tokenPayload = payload?.tokens ?? payload?.session?.tokens ?? payload;
+        const accessToken =
+          tokenPayload?.accessToken ??
+          tokenPayload?.access_token ??
+          tokenPayload?.token;
+        const nextRefreshToken =
+          tokenPayload?.refreshToken ?? tokenPayload?.refresh_token ?? refreshToken;
+
+        if (accessToken) {
+          tokenStorage.set({ accessToken, refreshToken: nextRefreshToken });
+        } else if (refreshToken) {
+          throw new Error("Session refresh succeeded without returning an access token.");
+        }
+
+        return response;
       })
       .finally(() => {
         refreshPromise = null;
@@ -43,32 +55,40 @@ function refreshTokens() {
   return refreshPromise;
 }
 
-const isAuthCall = (url = "") =>
-  /\/auth\/(login|register|verify-otp|resend-otp|google|refresh)/.test(url);
+const noRefreshFor = [
+  "/auth/login",
+  "/auth/google",
+  "/auth/register",
+  "/auth/verify-otp",
+  "/auth/resend-otp",
+  "/auth/refresh",
+  "/auth/logout",
+];
 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    const hasRefreshToken = Boolean(tokenStorage.get()?.refreshToken);
+    const url = original?.url?.split("?")[0] ?? "";
+    const isAuthRequest = noRefreshFor.some((path) => url.endsWith(path));
 
     const shouldRefresh =
       error.response?.status === 401 &&
       original &&
       !original._retry &&
-      !isAuthCall(original.url) &&
-      hasRefreshToken;
+      !isAuthRequest;
 
     if (!shouldRefresh) return Promise.reject(error);
 
     original._retry = true;
     try {
-      const tokens = await refreshTokens();
-      original.headers.Authorization = "Bearer " + tokens.accessToken;
+      await refreshTokens();
       return api(original);
     } catch (refreshError) {
-      tokenStorage.clear();
-      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      if (!url.endsWith("/auth/me")) {
+        tokenStorage.clear();
+        window.dispatchEvent(new Event("classesphere:session-expired"));
+      }
       return Promise.reject(refreshError);
     }
   }

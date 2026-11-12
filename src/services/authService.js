@@ -23,22 +23,20 @@ function normalizeUser(raw = {}) {
 }
 
 function normalizeSession(payload) {
+  const rawUser = payload?.user ?? payload?.data?.user ?? payload;
+  if (!rawUser || typeof rawUser !== "object") {
+    throw new Error("Login succeeded, but the server did not return user details.");
+  }
+
   const tokenPayload = payload.tokens ?? payload.session?.tokens ?? payload;
   const accessToken =
     tokenPayload.accessToken ?? tokenPayload.access_token ?? tokenPayload.token;
   const refreshToken =
     tokenPayload.refreshToken ?? tokenPayload.refresh_token;
 
-  if (!accessToken) {
-    throw new Error("Login succeeded, but the server did not return an access token.");
-  }
-
   return {
-    user: normalizeUser(payload.user ?? payload.data?.user ?? payload),
-    tokens: {
-      accessToken,
-      refreshToken,
-    },
+    user: normalizeUser(rawUser),
+    tokens: accessToken ? { accessToken, refreshToken } : null,
   };
 }
 
@@ -76,9 +74,9 @@ export async function googleAuthRequest(idToken, role) {
 export async function fetchMe() {
   const response = await call(() => api.get("/auth/me"));
   const payload = unwrap(response);
-  return normalizeUser(payload.user ?? payload);
+  return normalizeUser(payload?.user ?? payload);
 }
 
 export async function logoutRequest(refreshToken) {
-  await call(() => api.post("/auth/logout", { refreshToken }));
+  await call(() => api.post("/auth/logout", refreshToken ? { refreshToken } : {}));
 }
