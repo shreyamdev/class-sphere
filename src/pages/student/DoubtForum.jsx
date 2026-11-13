@@ -11,7 +11,7 @@ import {
 import Topbar from "../../components/Topbar";
 import HeroBanner from "../../components/HeroBanner";
 import Card from "../../components/Card";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/authContext";
 import { fetchMyClassrooms } from "../../services/classroomService";
 import {
   addDoubtReply,

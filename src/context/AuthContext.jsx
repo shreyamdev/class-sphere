@@ -1,13 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AuthContext } from "./authContext";
 import {
   loginRequest,
   googleAuthRequest,
   fetchMe,
   logoutRequest,
 } from "../services/authService";
-import { tokenStorage } from "../services/tokenStorage";
-
-const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -35,43 +33,36 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const onExpired = () => {
-      tokenStorage.clear();
       setUser(null);
     };
     window.addEventListener("classesphere:session-expired", onExpired);
     return () => window.removeEventListener("classesphere:session-expired", onExpired);
   }, []);
 
-  const startSession = (session) => {
-    if (session.tokens) {
-      tokenStorage.set(session.tokens);
-    } else {
-      tokenStorage.clear();
-    }
-    setUser(session.user);
-    return session.user;
+  const startSession = (loggedInUser) => {
+    setUser(loggedInUser);
+    return loggedInUser;
   };
 
   const login = async (credentials, role) => {
     authRequestId.current += 1;
-    const session = await loginRequest({ ...credentials, role });
-    return startSession(session);
+    const loggedInUser = await loginRequest({ ...credentials, role });
+    return startSession(loggedInUser);
   };
 
   const loginWithGoogle = async (idToken, role) => {
     authRequestId.current += 1;
-    const session = await googleAuthRequest(idToken, role);
-    return startSession(session);
+    const loggedInUser = await googleAuthRequest(idToken, role);
+    return startSession(loggedInUser);
   };
 
   const logout = async () => {
     authRequestId.current += 1;
     try {
-      await logoutRequest(tokenStorage.get()?.refreshToken);
+      await logoutRequest();
     } catch (error) {
       console.warn("Could not notify the server about logout:", error);
     } finally {
-      tokenStorage.clear();
       setUser(null);
     }
   };
@@ -87,10 +78,4 @@ export function AuthProvider({ children }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
 }

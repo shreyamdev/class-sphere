@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { linksByRole } from "../data/navLinks";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/authContext";
 
 function Brand() {
   return (

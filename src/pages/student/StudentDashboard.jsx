@@ -7,7 +7,7 @@ import Card from "../../components/Card";
 import StatCard from "../../components/StatCard";
 import ProfilePanel from "../../components/ProfilePanel";
 import AnnouncementCard from "../../components/AnnouncementCard";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/authContext";
 import { fetchMyClassrooms } from "../../services/classroomService";
 import { getClassroomAnnouncements } from "../../services/announcementService";
 import {

@@ -8,7 +8,7 @@ import Topbar from '../../components/Topbar';
 import HeroBanner from '../../components/HeroBanner';
 import StatCard from '../../components/StatCard';
 import { fetchMyClassrooms } from '../../services/classroomService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContext';
 import { getTeacherClassroomAnalytics } from '../../services/analyticsService';
 import {
   getAssignmentSubmissions,

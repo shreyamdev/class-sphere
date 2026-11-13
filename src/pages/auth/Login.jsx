@@ -6,7 +6,7 @@ import FormField from "../../components/FormField";
 import RoleToggle from "../../components/RoleToggle";
 import GoogleButton from "../../components/GoogleButton";
 import ServerWakeHint from "../../components/ServerWakeHint";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/authContext";
 import { getHomePath } from "../../utils/roleHome";
 import { isValidEmail } from "../../utils/validators";
 
