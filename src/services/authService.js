@@ -28,16 +28,7 @@ function normalizeSession(payload) {
     throw new Error("Login succeeded, but the server did not return user details.");
   }
 
-  const tokenPayload = payload.tokens ?? payload.session?.tokens ?? payload;
-  const accessToken =
-    tokenPayload.accessToken ?? tokenPayload.access_token ?? tokenPayload.token;
-  const refreshToken =
-    tokenPayload.refreshToken ?? tokenPayload.refresh_token;
-
-  return {
-    user: normalizeUser(rawUser),
-    tokens: accessToken ? { accessToken, refreshToken } : null,
-  };
+  return normalizeUser(rawUser);
 }
 
 export async function registerRequest({ name, email, password, role }) {
@@ -77,6 +68,6 @@ export async function fetchMe() {
   return normalizeUser(payload?.user ?? payload);
 }
 
-export async function logoutRequest(refreshToken) {
-  await call(() => api.post("/auth/logout", refreshToken ? { refreshToken } : {}));
+export async function logoutRequest() {
+  await call(() => api.post("/auth/logout"));
 }

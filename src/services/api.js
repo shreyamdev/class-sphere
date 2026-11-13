@@ -1,5 +1,4 @@
 import axios from "axios";
-import { tokenStorage } from "./tokenStorage";
 
 const ROOT = (
   import.meta.env.VITE_BACKEND_URL || "https://class-sphere-u1n7.onrender.com"
@@ -12,42 +11,12 @@ const api = axios.create({
   withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-  const accessToken = tokenStorage.get()?.accessToken;
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return config;
-});
-
 let refreshPromise = null;
 
-function refreshTokens() {
+function refreshSession() {
   if (!refreshPromise) {
-    const refreshToken = tokenStorage.get()?.refreshToken;
-    const request = refreshToken
-      ? api.post("/auth/refresh", { refreshToken })
-      : api.post("/auth/refresh");
-
-    refreshPromise = request
-      .then((response) => {
-        const payload = response.data?.data ?? response.data;
-        const tokenPayload = payload?.tokens ?? payload?.session?.tokens ?? payload;
-        const accessToken =
-          tokenPayload?.accessToken ??
-          tokenPayload?.access_token ??
-          tokenPayload?.token;
-        const nextRefreshToken =
-          tokenPayload?.refreshToken ?? tokenPayload?.refresh_token ?? refreshToken;
-
-        if (accessToken) {
-          tokenStorage.set({ accessToken, refreshToken: nextRefreshToken });
-        } else if (refreshToken) {
-          throw new Error("Session refresh succeeded without returning an access token.");
-        }
-
-        return response;
-      })
+    refreshPromise = api
+      .post("/auth/refresh")
       .finally(() => {
         refreshPromise = null;
       });
@@ -82,11 +51,10 @@ api.interceptors.response.use(
 
     original._retry = true;
     try {
-      await refreshTokens();
+      await refreshSession();
       return api(original);
     } catch (refreshError) {
-      if (!url.endsWith("/auth/me")) {
-        tokenStorage.clear();
+      if (!url.endsWith("/auth/me") && typeof window !== "undefined") {
         window.dispatchEvent(new Event("classesphere:session-expired"));
       }
       return Promise.reject(refreshError);
