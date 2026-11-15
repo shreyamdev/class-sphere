@@ -321,12 +321,6 @@ export default function ClassAnalytics() {
                   })}
                 </div>
               )}
-              {riskStatus === "ready" && (riskMeta?.disclaimer || riskMeta?.activityDataNote) && (
-                <div className="mt-4 space-y-1 border-t border-line pt-3 text-[11px] text-muted">
-                  {riskMeta.disclaimer && <p>{riskMeta.disclaimer}</p>}
-                  {riskMeta.activityDataNote && <p>{riskMeta.activityDataNote}</p>}
-                </div>
-              )}
             </Card>
           </div>
 
