@@ -12,7 +12,7 @@ import {
   normalizeQuiz,
 } from "../../services/quizService";
 
-function quizIdOf(value) {
+function quizIdOf(value) { 
   const quiz = value?.quiz;
   return String(
     (typeof quiz === "string" ? quiz : quiz?._id ?? quiz?.id) ??

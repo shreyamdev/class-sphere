@@ -126,7 +126,7 @@ export default function Announcements() {
       />
       <HeroBanner
         variant="navy"
-        eyebrow="KEEP EVERYONE INFORMED"
+  eyebrow="KEEP EVERYONE INFORMED"
         title="Share an update with your students"
         subtitle="Choose a classroom and post important news, reminders, and schedule changes."
         icons={[Megaphone, Bell, Calendar]}
