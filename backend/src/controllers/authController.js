@@ -1,7 +1,8 @@
+
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-
 const User = require("../models/User");
+
 const { hashPassword, comparePassword } = require("../utils/password");
 
 const {
@@ -14,6 +15,7 @@ const {
 } = require("../utils/otp");
 
 const { sendOtpEmail } = require("../services/emailService");
+
 const {
   REFRESH_COOKIE_NAME,
   setAuthCookies,
@@ -29,6 +31,130 @@ const REFRESH_TOKEN_EXPIRES_IN =
 
 const isValidEmail = (email) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// Common weak password patterns.
+// This is a heuristic denylist, not a complete breached-password database.
+const COMMON_PASSWORD_PATTERNS = [
+  "password",
+  "passw0rd",
+  "admin",
+  "administrator",
+  "welcome",
+  "qwerty",
+  "letmein",
+  "iloveyou",
+  "monkey",
+  "dragon",
+  "football",
+  "baseball",
+  " sunshine",
+  "login",
+  "changeme",
+  "default",
+  "abc123",
+  "p@ssword",
+  "pass@123",
+  "test123",
+];
+
+// Check for ascending or descending character sequences.
+const hasSequentialCharacters = (password) => {
+  const value = password.toLowerCase();
+
+  for (let i = 0; i <= value.length - 4; i++) {
+    const part = value.slice(i, i + 4);
+
+    let ascending = true;
+    let descending = true;
+
+    for (let j = 1; j < part.length; j++) {
+      const difference =
+        part.charCodeAt(j) - part.charCodeAt(j - 1);
+
+      if (difference !== 1) ascending = false;
+      if (difference !== -1) descending = false;
+    }
+
+    if (ascending || descending) return true;
+  }
+
+  return false;
+};
+
+// Check for repeated characters such as aaaaaa or 111111.
+const hasRepeatedCharacters = (password) =>
+  /(.)\1{4,}/.test(password);
+
+// Check password strength and similarity to user information.
+const getPasswordValidationError = (password, name, email) => {
+  if (password.length < 8) {
+    return "Password must contain at least 12 characters.";
+  }
+
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    return "Password must not exceed 72 UTF-8 bytes.";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter.";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain at least one lowercase letter.";
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return "Password must contain at least one number.";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must contain at least one special character.";
+  }
+
+  const normalizedPassword = password.toLowerCase();
+  const compactPassword = normalizedPassword.replace(/[^a-z0-9]/g, "");
+
+  if (
+    COMMON_PASSWORD_PATTERNS.some((pattern) =>
+      compactPassword.includes(pattern.trim().replace(/[^a-z0-9]/g, ""))
+    )
+  ) {
+    return "This password contains a commonly used weak pattern. Choose a different password.";
+  }
+
+  if (hasSequentialCharacters(compactPassword)) {
+    return "Password must not contain simple sequential characters.";
+  }
+
+  if (hasRepeatedCharacters(password)) {
+    return "Password must not contain too many repeated characters.";
+  }
+
+  const normalizedName = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  const emailUsername = email
+    .split("@")[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  if (
+    normalizedName.length >= 4 &&
+    compactPassword.includes(normalizedName)
+  ) {
+    return "Password must not contain your name.";
+  }
+
+  if (
+    emailUsername.length >= 4 &&
+    compactPassword.includes(emailUsername)
+  ) {
+    return "Password must not contain your email username.";
+  }
+
+  return null;
+};
 
 const createAccessToken = (user) =>
   jwt.sign(
@@ -115,15 +241,17 @@ const register = async (req, res) => {
       });
     }
 
-    // bcrypt accepts at most 72 UTF-8 bytes.
-    if (
-      password.length < 8 ||
-      Buffer.byteLength(password, "utf8") > 72
-    ) {
+    // Strong password validation.
+    const passwordError = getPasswordValidationError(
+      password,
+      cleanName,
+      normalizedEmail
+    );
+
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must be at least 8 characters and at most 72 UTF-8 bytes.",
+        message: passwordError,
       });
     }
 
@@ -484,6 +612,7 @@ const refresh = async (req, res) => {
 
     if (!refreshToken) {
       clearAuthCookies(res);
+
       return res.status(401).json({
         success: false,
         message: "Refresh session is missing. Please log in again.",
@@ -499,6 +628,7 @@ const refresh = async (req, res) => {
       );
     } catch {
       clearAuthCookies(res);
+
       return res.status(401).json({
         success: false,
         message: "Invalid or expired session. Please log in again.",
@@ -507,6 +637,7 @@ const refresh = async (req, res) => {
 
     if (decoded.type !== "refresh" || !decoded.sub) {
       clearAuthCookies(res);
+
       return res.status(401).json({
         success: false,
         message: "Invalid refresh session.",
@@ -523,6 +654,7 @@ const refresh = async (req, res) => {
       hashValue(refreshToken) !== user.refreshTokenHash
     ) {
       clearAuthCookies(res);
+
       return res.status(401).json({
         success: false,
         message: "Refresh session has expired or been revoked. Please log in again.",
